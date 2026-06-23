@@ -1,0 +1,1543 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,user-scalable=no"/>
+<meta name="apple-mobile-web-app-capable" content="yes"/>
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent"/>
+<meta name="apple-mobile-web-app-title" content="LifeOS"/>
+<meta name="theme-color" content="#0a0a0f"/>
+<link rel="manifest" href="manifest.json">
+
+<script>
+  if ('serviceWorker' in navigator) {
+    window.addEventListener('load', () => {
+      navigator.serviceWorker.register('sw.js')
+        .then(reg => console.log('Service Worker registrato con successo.', reg))
+        .catch(err => console.error('Errore registrazione Service Worker:', err));
+    });
+  }
+</script>
+<title>LifeOS</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"/>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Space+Grotesk:wght@500;700&display=swap" rel="stylesheet"/>
+<style>
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent;}
+html,body,#app{height:100%;overflow:hidden;background:#0a0a0f;font-family:'Inter',sans-serif;color:#f0f0f8;}
+::-webkit-scrollbar{width:3px;}
+::-webkit-scrollbar-thumb{background:#7c6af7;border-radius:2px;}
+input,textarea,select{font-family:'Inter',sans-serif;-webkit-appearance:none;appearance:none;outline:none;width:100%;}
+input[type=range]{-webkit-appearance:none;background:transparent;border:none;padding:0;}
+input[type=range]::-webkit-slider-runnable-track{height:6px;background:#22223a;border-radius:3px;}
+input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:22px;height:22px;border-radius:50%;background:#7c6af7;margin-top:-8px;}
+@keyframes fadeUp{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:translateY(0)}}
+@keyframes slideUp{from{transform:translateY(100%)}to{transform:translateY(0)}}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.3}}
+@keyframes popIn{0%{transform:scale(.5);opacity:0}70%{transform:scale(1.1)}100%{transform:scale(1);opacity:1}}
+@keyframes spin{to{transform:rotate(360deg)}}
+.fadeUp{animation:fadeUp .3s ease both;}
+.pulse{animation:pulse 1.4s ease infinite;}
+.popIn{animation:popIn .4s cubic-bezier(.34,1.56,.64,1) both;}
+
+/* LAYOUT */
+#app{display:flex;flex-direction:column;}
+.header{background:linear-gradient(135deg,#12121a,#1a1a26);padding:14px 18px 12px;border-bottom:1px solid rgba(124,106,247,0.18);flex-shrink:0;padding-top:max(14px,env(safe-area-inset-top));}
+.content{flex:1;overflow-y:auto;overflow-x:hidden;padding:16px 16px 8px;-webkit-overflow-scrolling:touch;}
+.bottom-nav{background:#12121a;border-top:1px solid rgba(124,106,247,0.18);display:flex;overflow-x:auto;flex-shrink:0;padding-bottom:max(10px,env(safe-area-inset-bottom));}
+.bottom-nav::-webkit-scrollbar{display:none;}
+.nav-btn{flex:0 0 auto;background:none;border:none;cursor:pointer;display:flex;flex-direction:column;align-items:center;padding:8px 12px 4px;gap:2px;color:#8888aa;transition:color .2s;font-family:'Inter',sans-serif;}
+.nav-btn.active{color:#7c6af7;}
+.nav-btn span.icon{font-size:20px;}
+.nav-btn span.lbl{font-size:9px;font-weight:400;}
+.nav-btn.active span.lbl{font-weight:700;}
+
+/* CARDS */
+.card{background:#12121a;border:1px solid rgba(124,106,247,0.18);border-radius:16px;padding:16px;margin-bottom:0;}
+.card.glow{box-shadow:0 0 28px rgba(124,106,247,0.15);}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:10px;}
+.grid3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;}
+.stat-card{background:#12121a;border:1px solid rgba(124,106,247,0.18);border-radius:16px;padding:12px;text-align:center;}
+.stat-card .val{font-weight:700;font-size:20px;margin:4px 0;}
+.stat-card .lbl{font-size:11px;color:#8888aa;}
+.section-gap{display:flex;flex-direction:column;gap:14px;}
+
+/* BUTTONS */
+.btn{cursor:pointer;font-family:'Inter',sans-serif;font-weight:600;font-size:14px;border-radius:10px;border:2px solid #7c6af7;background:#7c6af7;color:#fff;padding:11px 20px;display:inline-flex;align-items:center;justify-content:center;gap:6px;transition:opacity .2s;width:auto;}
+.btn:disabled{opacity:.4;}
+.btn.full{width:100%;}
+.btn.sm{padding:7px 14px;font-size:13px;}
+.btn.outline{background:transparent;color:#7c6af7;}
+.btn.red{border-color:#f87171;background:#f87171;}
+.btn.red.outline{background:transparent;color:#f87171;}
+.btn.green{border-color:#34d399;background:#34d399;}
+.btn.green.outline{background:transparent;color:#34d399;}
+.btn.orange{border-color:#fb923c;background:#fb923c;}
+.btn.blue{border-color:#60a5fa;background:#60a5fa;}
+.btn.gold{border-color:#f5c542;background:#f5c542;color:#000;}
+
+/* MODAL */
+.modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,.78);z-index:500;display:flex;align-items:flex-end;justify-content:center;}
+.modal-box{background:#12121a;border-radius:22px 22px 0 0;padding:24px;width:100%;max-width:600px;max-height:92vh;overflow-y:auto;border:1px solid rgba(124,106,247,0.18);animation:slideUp .3s ease;}
+.modal-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;}
+.modal-title{font-family:'Space Grotesk',sans-serif;font-weight:700;font-size:18px;}
+.modal-close{background:#22223a;border:none;color:#f0f0f8;width:32px;height:32px;border-radius:50%;font-size:20px;display:flex;align-items:center;justify-content:center;cursor:pointer;}
+
+/* INPUTS */
+.inp{background:#1a1a26;color:#f0f0f8;border:1px solid rgba(124,106,247,0.18);border-radius:10px;padding:11px 14px;font-size:14px;width:100%;}
+.inp:focus{border-color:#7c6af7;box-shadow:0 0 0 3px rgba(124,106,247,0.12);}
+.inp-label{font-size:11px;color:#8888aa;font-weight:600;letter-spacing:.5px;margin-bottom:5px;}
+select.inp{background-image:none;}
+
+/* XP BAR */
+.xp-bar-wrap{display:flex;align-items:center;gap:8px;}
+.xp-level{font-size:12px;color:#a89cf8;font-weight:700;min-width:32px;}
+.xp-track{flex:1;height:6px;background:#22223a;border-radius:3px;overflow:hidden;}
+.xp-fill{height:100%;border-radius:3px;background:linear-gradient(90deg,#7c6af7,#a89cf8);transition:width .6s;}
+.xp-text{font-size:11px;color:#8888aa;min-width:60px;text-align:right;}
+
+/* PLANNER TIMELINE */
+.timeline-line{position:absolute;left:46px;top:8px;bottom:8px;width:2px;background:rgba(124,106,247,0.18);z-index:0;}
+.timeline-row{display:flex;gap:12px;margin-bottom:12px;position:relative;z-index:1;}
+.timeline-time{display:flex;flex-direction:column;align-items:center;min-width:60px;padding-top:4px;}
+.timeline-dot{width:13px;height:13px;border-radius:50%;margin-top:5px;border:3px solid;background:#0a0a0f;transition:all .3s;}
+.timeline-body{flex:1;background:#1a1a26;border:1px solid rgba(124,106,247,0.18);border-radius:16px;padding:12px 14px;transition:all .3s;}
+.timeline-body.done{opacity:.75;}
+.check-btn{width:38px;height:38px;border-radius:50%;border:2.5px solid rgba(124,106,247,0.18);background:transparent;color:#fff;font-size:18px;display:flex;align-items:center;justify-content:center;cursor:pointer;transition:all .3s;font-weight:700;flex-shrink:0;}
+.check-btn.done{background:#34d399;border-color:#34d399;}
+
+/* CHAT */
+.chat-bubble{max-width:80%;border-radius:18px;padding:11px 15px;font-size:14px;line-height:1.65;}
+.chat-bubble.user{background:#7c6af7;border-radius:18px 18px 4px 18px;align-self:flex-end;}
+.chat-bubble.ai{background:#1a1a26;border-radius:18px 18px 18px 4px;}
+
+/* BADGE TOAST */
+.badge-toast{position:fixed;bottom:100px;left:50%;transform:translateX(-50%);z-index:999;background:#12121a;border:2px solid #f5c542;border-radius:20px;padding:16px 24px;text-align:center;min-width:220px;box-shadow:0 8px 40px rgba(245,197,66,.35);}
+
+/* PROGRESS BAR */
+.prog-bar{height:8px;background:#22223a;border-radius:4px;overflow:hidden;}
+.prog-fill{height:100%;border-radius:4px;transition:width .6s;}
+
+/* CATEGORY CHIP */
+.cat-chip{background:#1a1a26;border:2px solid rgba(124,106,247,0.18);border-radius:10px;padding:8px 12px;cursor:pointer;display:flex;align-items:center;gap:8px;transition:all .2s;}
+.cat-chip.sel{background:rgba(124,106,247,0.15);border-color:#7c6af7;}
+
+/* ENGLISH */
+.eng-option{padding:11px 14px;margin-bottom:8px;border-radius:10px;border:2px solid rgba(124,106,247,0.18);background:#1a1a26;cursor:pointer;font-size:14px;transition:all .2s;}
+.eng-option.sel{border-color:#7c6af7;background:rgba(124,106,247,0.15);}
+
+/* POMODORO */
+.pomo-mode{flex:0 0 auto;}
+
+/* ROW */
+.row{display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid rgba(124,106,247,0.12);}
+.row:last-child{border-bottom:none;}
+</style>
+</head>
+<body>
+<div id="app">
+  <div class="header" id="hdr"></div>
+  <div class="content" id="content"></div>
+  <div class="bottom-nav" id="nav"></div>
+</div>
+
+<!-- MODALS -->
+<div id="modals"></div>
+<div id="toast"></div>
+
+<script>
+// ── STATE ─────────────────────────────────────────────────────────────────────
+const S = {
+  tab: 'home',
+  profile: load('lo_profile', {name:'',avatar:'🦁',xp:0,level:1,streak:0,lastActive:'',englishLevel:'A1',englishXP:0,badges:[]}),
+  activities: load('lo_acts', []),
+  schedule: load('lo_schedule', []),
+  events: load('lo_events', []),
+  diary: load('lo_diary', []),
+  moods: load('lo_moods', []),
+  sleepLog: load('lo_sleep', []),
+  goals: load('lo_goals', []),
+  dict: load('lo_dict', []),
+  // UI state
+  modal: null,
+  plannerDate: todayStr(),
+  engTab: 'home',
+  engExercise: null,
+  engAnswers: {},
+  engResult: null,
+  engSpeakResult: '',
+  engSpeakLoading: false,
+  chatMsgs: [{r:'a',t:'Ciao! 👋 Sono il tuo AI Coach. Chiedimi consigli su attività, inglese o come organizzare la tua giornata!'}],
+  chatInput: '',
+  chatLoading: false,
+  pomMode: 'work',
+  pomMins: 25,
+  pomSecs: 0,
+  pomRunning: false,
+  pomSessions: 0,
+  pomInterval: null,
+  actForm: {category:'study', duration:30, note:''},
+  eventForm: {title:'', date:todayStr(), time:'09:00', note:''},
+  goalForm: {title:'', target:7, unit:'giorni'},
+  diaryForm: '',
+  moodForm: 3,
+  sleepForm: {bedtime:'23:00', wake:'07:00'},
+  planForm: {title:'', category:'study', startTime:'09:00', endTime:'10:00', priority:'normal', note:''},
+  vocabForm: {word:'', tr:'', ex:''},
+};
+
+function load(k, def) {
+  try { const v = localStorage.getItem(k); return v ? JSON.parse(v) : def; } catch { return def; }
+}
+function save(k, v) {
+  try { localStorage.setItem(k, JSON.stringify(v)); } catch {}
+}
+function saveState() {
+  save('lo_profile', S.profile);
+  save('lo_acts', S.activities);
+  save('lo_schedule', S.schedule);
+  save('lo_events', S.events);
+  save('lo_diary', S.diary);
+  save('lo_moods', S.moods);
+  save('lo_sleep', S.sleepLog);
+  save('lo_goals', S.goals);
+  save('lo_dict', S.dict);
+}
+
+// ── HELPERS ───────────────────────────────────────────────────────────────────
+function todayStr() { return new Date().toISOString().split('T')[0]; }
+function fmtDate(d) { return new Date(d+'T12:00:00').toLocaleDateString('it-IT',{day:'2-digit',month:'short'}); }
+const WD = ['Dom','Lun','Mar','Mer','Gio','Ven','Sab'];
+
+function addXP(amt) {
+  S.profile.xp = (S.profile.xp||0) + amt;
+  S.profile.level = Math.floor(S.profile.xp / 500) + 1;
+  saveState();
+}
+
+function addBadge(id) {
+  if ((S.profile.badges||[]).includes(id)) return;
+  const b = BADGES.find(x => x.id === id);
+  if (!b) return;
+  S.profile.badges = [...(S.profile.badges||[]), id];
+  addXP(b.xp);
+  showBadgeToast(b);
+  saveState();
+}
+
+function showBadgeToast(b) {
+  const t = document.getElementById('toast');
+  t.innerHTML = `<div class="badge-toast popIn">
+    <div style="font-size:42px;margin-bottom:6px">${b.e}</div>
+    <div style="font-size:10px;color:#f5c542;font-weight:700;letter-spacing:2px;margin-bottom:3px">BADGE SBLOCCATO!</div>
+    <div style="font-family:'Space Grotesk',sans-serif;font-weight:700;font-size:15px;margin-bottom:4px">${b.l}</div>
+    <div style="font-size:12px;color:#a89cf8;font-weight:600">+${b.xp} XP</div>
+  </div>`;
+  setTimeout(() => { t.innerHTML = ''; }, 3500);
+}
+
+function re() { render(); saveState(); }
+
+// ── CONSTANTS ─────────────────────────────────────────────────────────────────
+const CATS = [
+  {id:'study',l:'Studio',e:'📚',c:'#60a5fa'},
+  {id:'sport',l:'Sport',e:'🏋️',c:'#34d399'},
+  {id:'work',l:'Lavoro',e:'💼',c:'#fb923c'},
+  {id:'meditation',l:'Meditazione',e:'🧘',c:'#f472b6'},
+  {id:'reading',l:'Lettura',e:'📖',c:'#a89cf8'},
+  {id:'english',l:'Inglese',e:'🌍',c:'#f5c542'},
+  {id:'nutrition',l:'Nutrizione',e:'🥗',c:'#4ade80'},
+  {id:'social',l:'Sociale',e:'👥',c:'#f87171'},
+  {id:'hobby',l:'Hobby',e:'🎨',c:'#c084fc'},
+  {id:'sleep',l:'Sonno',e:'😴',c:'#818cf8'},
+];
+
+const getCat = id => CATS.find(c => c.id === id) || CATS[0];
+
+const PRIO = {
+  high:   {l:'🔴 Alta',   c:'#f87171'},
+  normal: {l:'🟡 Normale',c:'#fb923c'},
+  low:    {l:'🟢 Bassa',  c:'#34d399'},
+};
+
+const BADGES = [
+  {id:'first_task',  l:'Prima attività',   e:'🌱',d:'Completa la prima attività',       xp:50},
+  {id:'perfect_day', l:'Giornata perfetta', e:'⭐',d:'Completa tutte le att. pianificate',xp:200},
+  {id:'planner_pro', l:'Pianificatore',     e:'📋',d:'Pianifica 5+ attività in un giorno',xp:100},
+  {id:'streak_3',    l:'In serie!',         e:'🔥',d:'3 giorni consecutivi attivo',       xp:100},
+  {id:'streak_7',    l:'Settimana di fuoco',e:'⚡',d:'7 giorni consecutivi attivo',       xp:300},
+  {id:'study_master',l:'Studioso',          e:'🎓',d:'10 ore di studio totali',           xp:200},
+  {id:'sport_hero',  l:'Atleta',            e:'🏆',d:'10 sessioni di sport',              xp:200},
+  {id:'english_start',l:'Explorer',         e:'🌍',d:'Prima lezione di inglese',          xp:75},
+  {id:'vocab_50',    l:'Vocab Hero',        e:'📝',d:'50 parole nel dizionario',          xp:150},
+  {id:'pomodoro_10', l:'Focus Master',      e:'🍅',d:'10 sessioni Pomodoro completate',  xp:100},
+  {id:'diary_7',     l:'Memorialista',      e:'📔',d:'7 voci nel diario',                xp:200},
+  {id:'goal_done',   l:'Obiettivo centrato',e:'🎯',d:'Completa il primo obiettivo',      xp:150},
+];
+
+const ENG_LEVELS = ['A1','A2','B1','B2','C1','C2'];
+
+const TIME_SLOTS = ['06:00','06:30','07:00','07:30','08:00','08:30','09:00','09:30',
+  '10:00','10:30','11:00','11:30','12:00','12:30','13:00','13:30','14:00','14:30',
+  '15:00','15:30','16:00','16:30','17:00','17:30','18:00','18:30','19:00','19:30',
+  '20:00','20:30','21:00','21:30','22:00','22:30','23:00','23:30'];
+
+const READINGS = {
+  A1:[{id:'a1_1',title:'My Day',text:'I wake up at 7 AM every day. I eat breakfast and drink coffee. Then I go to work by bus. At noon I eat lunch with a friend. In the evening I watch TV and read a book.',qs:[{q:'What time does the person wake up?',a:'7 AM',opts:['6 AM','7 AM','8 AM','9 AM']},{q:'How does the person go to work?',a:'by bus',opts:['by car','by train','by bus','by bike']}]},{id:'a1_2',title:'The Cat',text:'My cat is black and white. Her name is Luna. She likes to sleep near the window and watch birds. Every morning she sits in the sun. She eats fish and drinks milk.',qs:[{q:'What color is the cat?',a:'black and white',opts:['orange','grey','black and white','brown']},{q:'Where does Luna sit every morning?',a:'in the sun',opts:['on the sofa','in the sun','on the bed','near the door']}]}],
+  A2:[{id:'a2_1',title:'A Weekend Trip',text:'Last weekend Sarah and Tom visited the mountains. They left early on Saturday morning and drove for three hours. The weather was perfect — sunny and cool. They hiked five hours and took many photos. On Sunday they explored a small village.',qs:[{q:'How long did they drive?',a:'three hours',opts:['one hour','two hours','three hours','five hours']},{q:'What did they do on Sunday?',a:'explored a small village',opts:['hiked again','went swimming','explored a small village','went shopping']}]}],
+  B1:[{id:'b1_1',title:'Benefits of Exercise',text:'Regular exercise offers numerous benefits for both physical and mental health. Studies show that people who exercise at least 30 minutes a day have lower rates of depression. Exercise also improves cardiovascular health and strengthens muscles. Exercising outdoors has been linked to improved mood and reduced stress.',qs:[{q:'How long should people exercise daily?',a:'at least 30 minutes',opts:['10 minutes','at least 30 minutes','two hours','one hour']},{q:'What benefit does outdoor exercise have?',a:'improved mood and reduced stress',opts:['stronger bones only','improved mood and reduced stress','faster heart rate','better digestion']}]}],
+  B2:[{id:'b2_1',title:'AI in Education',text:'The integration of AI into education represents both an opportunity and a challenge. AI tools can personalise learning by adapting content in real-time based on student performance. However, critics argue that over-reliance on algorithms may undermine critical thinking. The key is to harness AI efficiency without sacrificing human interaction.',qs:[{q:'What can AI tools do in education?',a:'personalise learning',opts:['replace teachers','personalise learning','reduce school hours','eliminate exams']},{q:'What do critics fear?',a:'undermining critical thinking',opts:['too much homework','undermining critical thinking','lack of computers','data costs']}]}],
+  C1:[{id:'c1_1',title:'The Paradox of Choice',text:'Contemporary culture assumes that maximising choice leads to greater satisfaction. Yet research demonstrates the "paradox of choice": an abundance of options causes decision paralysis and diminished wellbeing. When confronted with too many alternatives, the cognitive burden becomes counterproductive, reducing rather than enhancing autonomy.',qs:[{q:'What does the paradox of choice mean?',a:'More options can reduce satisfaction',opts:['More options always help','More options can reduce satisfaction','Choice is irrelevant','Simple choices are always best']}]}],
+  C2:[{id:'c2_1',title:'Calibrated Confidence',text:'The tension between epistemic humility and the necessity of conviction animates philosophical discourse. While radical scepticism renders meaningful action impossible, uncritical certainty forecloses genuine understanding. Sophisticated thinkers cultivate "calibrated confidence" — holding beliefs proportional to evidence while remaining receptive to revision.',qs:[{q:'What is calibrated confidence?',a:'Beliefs proportional to evidence, open to revision',opts:['Complete certainty','Beliefs proportional to evidence, open to revision','Total scepticism','Following authority']}]}],
+};
+
+const VOCAB_SUG = [
+  {word:'accomplish',tr:'realizzare',ex:'I want to accomplish my goals.'},
+  {word:'perseverance',tr:'perseveranza',ex:'Success requires perseverance.'},
+  {word:'resilience',tr:'resilienza',ex:'Resilience helps us overcome challenges.'},
+  {word:'flourish',tr:'prosperare',ex:'Plants flourish with sunlight.'},
+  {word:'insight',tr:'intuizione',ex:'The book gave me a new insight.'},
+  {word:'consistency',tr:'costanza',ex:'Consistency is key to progress.'},
+];
+
+// ── TABS ──────────────────────────────────────────────────────────────────────
+const TABS = [
+  {id:'home',    l:'Home',     i:'🏠'},
+  {id:'planner', l:'Piano',    i:'📋'},
+  {id:'acts',    l:'Attività', i:'⚡'},
+  {id:'english', l:'Inglese',  i:'🌍'},
+  {id:'focus',   l:'Focus',    i:'🍅'},
+  {id:'stats',   l:'Grafici',  i:'📊'},
+  {id:'coach',   l:'AI Coach', i:'🤖'},
+  {id:'calendar',l:'Agenda',   i:'📅'},
+  {id:'goals',   l:'Obiettivi',i:'🎯'},
+  {id:'diary',   l:'Diario',   i:'📔'},
+  {id:'sleep',   l:'Sonno',    i:'🌙'},
+  {id:'badges',  l:'Badge',    i:'🏆'},
+];
+
+// ── RENDER ────────────────────────────────────────────────────────────────────
+function render() {
+  renderHeader();
+  renderContent();
+  renderNav();
+  renderModal();
+}
+
+function renderHeader() {
+  const p = S.profile;
+  const streak = p.streak || 0;
+  const xp = p.xp || 0;
+  const level = p.level || 1;
+  const pct = Math.min((xp % 500) / 5, 100);
+  const todayPlan = S.schedule.filter(x => x.date === todayStr());
+  const done = todayPlan.filter(x => x.done).length;
+
+  document.getElementById('hdr').innerHTML = `
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+      <div>
+        <div style="font-family:'Space Grotesk',sans-serif;font-weight:700;font-size:24px;background:linear-gradient(90deg,#7c6af7,#a89cf8);-webkit-background-clip:text;-webkit-text-fill-color:transparent">LifeOS</div>
+        <div style="font-size:12px;color:#8888aa">${p.name ? `Ciao, ${p.name}! 👋` : 'Tocca l\'avatar per configurare il profilo'}</div>
+      </div>
+      <div style="display:flex;align-items:center;gap:10px">
+        ${streak > 0 ? `<div style="background:#22223a;border-radius:20px;padding:4px 10px;font-size:13px;font-weight:600">🔥 ${streak}</div>` : ''}
+        ${todayPlan.length > 0 ? `<div style="background:#22223a;border-radius:20px;padding:4px 10px;font-size:13px;font-weight:600;color:${done===todayPlan.length?'#34d399':'#7c6af7'}">${done}/${todayPlan.length} ✓</div>` : ''}
+        <div onclick="openModal('profile')" style="width:40px;height:40px;border-radius:50%;background:#22223a;border:2.5px solid #7c6af7;display:flex;align-items:center;justify-content:center;font-size:22px;cursor:pointer">${p.avatar}</div>
+      </div>
+    </div>
+    <div class="xp-bar-wrap">
+      <span class="xp-level">Lv.${level}</span>
+      <div class="xp-track"><div class="xp-fill" style="width:${pct}%"></div></div>
+      <span class="xp-text">${xp % 500}/500 XP</span>
+    </div>`;
+}
+
+function renderNav() {
+  document.getElementById('nav').innerHTML = TABS.map(t =>
+    `<button class="nav-btn ${S.tab === t.id ? 'active' : ''}" onclick="setTab('${t.id}')">
+      <span class="icon">${t.i}</span>
+      <span class="lbl">${t.l}</span>
+    </button>`
+  ).join('');
+}
+
+function setTab(id) { S.tab = id; render(); }
+
+// ── CONTENT PAGES ─────────────────────────────────────────────────────────────
+function renderContent() {
+  const c = document.getElementById('content');
+  c.className = 'content fadeUp';
+  const pages = {
+    home: pageHome,
+    planner: pagePlanner,
+    acts: pageActivities,
+    english: pageEnglish,
+    focus: pageFocus,
+    stats: pageStats,
+    coach: pageCoach,
+    calendar: pageCalendar,
+    goals: pageGoals,
+    diary: pageDiary,
+    sleep: pageSleep,
+    badges: pageBadges,
+  };
+  c.innerHTML = (pages[S.tab] || pageHome)();
+  bindEvents();
+}
+
+// ── HOME ──────────────────────────────────────────────────────────────────────
+function pageHome() {
+  const todayActs = S.activities.filter(a => a.date === todayStr());
+  const todayPlan = S.schedule.filter(s => s.date === todayStr());
+  const done = todayPlan.filter(s => s.done).length;
+  const totalMins = todayActs.reduce((s,a) => s + a.duration, 0);
+  const badges = S.profile.badges || [];
+  const upcoming = S.events.filter(e => e.date >= todayStr()).sort((a,b) => a.date.localeCompare(b.date)).slice(0,4);
+  const activeGoals = S.goals.filter(g => !g.done).slice(0,3);
+
+  return `<div class="section-gap">
+    <div class="grid3">
+      <div class="stat-card">
+        <div style="font-size:22px">📋</div>
+        <div class="val" style="color:${done===todayPlan.length&&todayPlan.length>0?'#34d399':'#7c6af7'}">${done}/${todayPlan.length}</div>
+        <div class="lbl">Piano oggi</div>
+      </div>
+      <div class="stat-card">
+        <div style="font-size:22px">⏱️</div>
+        <div class="val" style="color:#34d399">${totalMins}m</div>
+        <div class="lbl">Min. attivi</div>
+      </div>
+      <div class="stat-card">
+        <div style="font-size:22px">🏅</div>
+        <div class="val" style="color:#f5c542">${badges.length}</div>
+        <div class="lbl">Badge</div>
+      </div>
+    </div>
+
+    ${todayPlan.length > 0 ? `
+    <div class="card">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
+        <div style="font-weight:700">📋 Piano di oggi</div>
+        <button class="btn sm outline" onclick="setTab('planner')">Vedi tutto →</button>
+      </div>
+      <div class="prog-bar" style="margin-bottom:12px">
+        <div class="prog-fill" style="width:${todayPlan.length?done/todayPlan.length*100:0}%;background:${done===todayPlan.length?'linear-gradient(90deg,#34d399,#6ee7b7)':'linear-gradient(90deg,#7c6af7,#a89cf8)'}"></div>
+      </div>
+      ${todayPlan.slice(0,4).map(item => {
+        const c = getCat(item.category);
+        return `<div class="row">
+          <span style="font-size:18px">${c.e}</span>
+          <div style="flex:1">
+            <div style="font-size:13px;font-weight:600;${item.done?'text-decoration:line-through;color:#8888aa':''}">${item.title}</div>
+            <div style="font-size:11px;color:#8888aa">${item.startTime}–${item.endTime}</div>
+          </div>
+          <button class="check-btn ${item.done?'done':''}" onclick="togglePlan(${item.id})">${item.done?'✓':'○'}</button>
+        </div>`;
+      }).join('')}
+    </div>` : ''}
+
+    <div class="card">
+      <div style="font-weight:700;margin-bottom:12px">Azioni rapide</div>
+      <div class="grid2" style="gap:8px">
+        <button class="btn full" onclick="setTab('planner')">📋 Pianifica giorno</button>
+        <button class="btn full outline" onclick="openModal('act')">⚡ Registra attività</button>
+        <button class="btn full outline" onclick="openModal('event')">📅 Nuovo evento</button>
+        <button class="btn full outline" style="border-color:#f472b6;color:#f472b6" onclick="openModal('diary')">📔 Diario</button>
+      </div>
+    </div>
+
+    ${upcoming.length > 0 ? `
+    <div class="card">
+      <div style="font-weight:700;margin-bottom:10px">📅 Prossimi impegni</div>
+      ${upcoming.map(e => `
+        <div class="row">
+          <div style="background:#7c6af7;border-radius:10px;padding:4px 10px;font-size:11px;font-weight:700;min-width:52px;text-align:center">${fmtDate(e.date)}</div>
+          <div style="flex:1">
+            <div style="font-weight:600;font-size:13px">${e.title}</div>
+            ${e.time ? `<div style="font-size:11px;color:#8888aa">🕐 ${e.time}</div>` : ''}
+          </div>
+        </div>`).join('')}
+    </div>` : ''}
+
+    ${activeGoals.length > 0 ? `
+    <div class="card">
+      <div style="font-weight:700;margin-bottom:10px">🎯 Obiettivi in corso</div>
+      ${activeGoals.map(g => {
+        const pct = Math.min(g.progress/g.target*100,100);
+        return `<div style="margin-bottom:10px">
+          <div style="display:flex;justify-content:space-between;margin-bottom:5px">
+            <span style="font-size:13px;font-weight:600">${g.title}</span>
+            <span style="font-size:12px;color:#8888aa">${g.progress}/${g.target}</span>
+          </div>
+          <div class="prog-bar"><div class="prog-fill" style="width:${pct}%;background:linear-gradient(90deg,#7c6af7,#a89cf8)"></div></div>
+        </div>`;
+      }).join('')}
+    </div>` : ''}
+  </div>`;
+}
+
+// ── PLANNER ───────────────────────────────────────────────────────────────────
+function pagePlanner() {
+  const days = [];
+  for (let i=-1; i<=6; i++) {
+    const d = new Date(); d.setDate(d.getDate()+i);
+    days.push(d.toISOString().split('T')[0]);
+  }
+  const sel = S.plannerDate;
+  const items = S.schedule.filter(s => s.date === sel).sort((a,b) => a.startTime.localeCompare(b.startTime));
+  const done = items.filter(s => s.done).length;
+  const total = items.length;
+  const pct = total > 0 ? Math.round(done/total*100) : 0;
+
+  return `<div class="section-gap">
+    <!-- Date strip -->
+    <div style="display:flex;gap:8px;overflow-x:auto;padding-bottom:4px">
+      ${days.map(d => {
+        const wd = WD[new Date(d+'T12:00').getDay()];
+        const dd = new Date(d+'T12:00').getDate();
+        const isToday = d === todayStr();
+        const isSel = d === sel;
+        const dayItems = S.schedule.filter(x => x.date===d);
+        const dayDone = dayItems.filter(x=>x.done).length;
+        return `<button onclick="setPlannerDate('${d}')" style="flex:0 0 auto;background:${isSel?'#7c6af7':'#1a1a26'};border:2px solid ${isSel?'#7c6af7':isToday?'#a89cf8':'rgba(124,106,247,0.18)'};border-radius:12px;padding:8px 12px;cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:3px;color:${isSel?'#fff':'#8888aa'}">
+          <span style="font-size:10px;font-weight:600">${wd}</span>
+          <span style="font-size:20px;font-weight:700;color:${isSel?'#fff':isToday?'#7c6af7':'#f0f0f8'}">${dd}</span>
+          ${dayItems.length>0 ? `<div style="width:6px;height:6px;border-radius:50%;background:${dayDone===dayItems.length?'#34d399':'#fb923c'}"></div>` : '<div style="height:6px"></div>'}
+        </button>`;
+      }).join('')}
+    </div>
+
+    <!-- Progress -->
+    ${total > 0 ? `
+    <div class="card" style="padding:14px">
+      <div style="display:flex;justify-content:space-between;margin-bottom:8px">
+        <span style="font-weight:700;font-size:14px">Progresso del giorno</span>
+        <span style="font-weight:700;color:${pct===100?'#34d399':'#7c6af7'}">${done}/${total} · ${pct}%</span>
+      </div>
+      <div class="prog-bar" style="height:10px">
+        <div class="prog-fill" style="width:${pct}%;background:${pct===100?'linear-gradient(90deg,#34d399,#6ee7b7)':'linear-gradient(90deg,#7c6af7,#a89cf8)'}"></div>
+      </div>
+      ${pct===100 ? '<div style="margin-top:10px;text-align:center;color:#34d399;font-weight:700">🎉 Giornata completata al 100%!</div>' : ''}
+    </div>` : ''}
+
+    <button class="btn full" onclick="openModal('plan')">＋ Aggiungi al piano</button>
+
+    <!-- Stats strip -->
+    ${items.length > 0 ? `
+    <div class="card" style="padding:12px">
+      <div class="grid3">
+        <div style="text-align:center"><div style="font-size:22px;font-weight:700;color:#34d399">${done}</div><div style="font-size:11px;color:#8888aa">Completate</div></div>
+        <div style="text-align:center"><div style="font-size:22px;font-weight:700;color:#fb923c">${total-done}</div><div style="font-size:11px;color:#8888aa">Da fare</div></div>
+        <div style="text-align:center"><div style="font-size:22px;font-weight:700;color:#7c6af7">+${done*30}</div><div style="font-size:11px;color:#8888aa">XP oggi</div></div>
+      </div>
+    </div>` : ''}
+
+    <!-- Timeline -->
+    ${items.length === 0 ? `
+    <div class="card" style="text-align:center;padding:36px">
+      <div style="font-size:52px;margin-bottom:10px">📋</div>
+      <div style="font-weight:700;font-size:16px;margin-bottom:6px">Nessuna attività pianificata</div>
+      <div style="color:#8888aa;font-size:14px">Organizza la tua giornata aggiungendo attività con orari e priorità.</div>
+    </div>` : `
+    <div style="position:relative">
+      <div class="timeline-line"></div>
+      ${items.map(item => {
+        const c = getCat(item.category);
+        const p = PRIO[item.priority]||PRIO.normal;
+        return `<div class="timeline-row">
+          <div class="timeline-time">
+            <span style="font-size:11px;color:#8888aa;font-weight:600">${item.startTime}</span>
+            <div class="timeline-dot" style="border-color:${item.done?'#34d399':c.c};background:${item.done?'#34d399':'#0a0a0f'}"></div>
+          </div>
+          <div class="timeline-body ${item.done?'done':''}" style="border-color:${item.done?'rgba(52,211,153,0.3)':c.c+'33'}">
+            <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:8px">
+              <div style="flex:1">
+                <div style="display:flex;align-items:center;gap:8px;margin-bottom:5px;flex-wrap:wrap">
+                  <span style="font-size:18px">${c.e}</span>
+                  <span style="font-weight:700;font-size:14px;${item.done?'text-decoration:line-through;color:#8888aa':''}">${item.title}</span>
+                  <span style="font-size:10px;padding:2px 8px;border-radius:20px;font-weight:600;background:${p.c}22;color:${p.c}">${p.l}</span>
+                </div>
+                <div style="display:flex;gap:10px;font-size:12px;color:#8888aa">
+                  <span>🕐 ${item.startTime}–${item.endTime}</span>
+                  <span style="color:${c.c};font-weight:600">${c.l}</span>
+                </div>
+                ${item.note ? `<div style="font-size:12px;color:#8888aa;margin-top:5px;font-style:italic">${item.note}</div>` : ''}
+                ${item.done && item.doneAt ? `<div style="font-size:11px;color:#34d399;margin-top:5px;font-weight:600">✅ Completata alle ${new Date(item.doneAt).toLocaleTimeString('it-IT',{hour:'2-digit',minute:'2-digit'})}</div>` : ''}
+              </div>
+              <div style="display:flex;flex-direction:column;gap:6px;align-items:center">
+                <button class="check-btn ${item.done?'done':''}" onclick="togglePlan(${item.id})">${item.done?'✓':'○'}</button>
+                <button onclick="delPlan(${item.id})" style="width:28px;height:28px;border-radius:50%;border:none;background:#22223a;color:#8888aa;font-size:14px;cursor:pointer">×</button>
+              </div>
+            </div>
+          </div>
+        </div>`;
+      }).join('')}
+    </div>`}
+  </div>`;
+}
+
+// ── ACTIVITIES ────────────────────────────────────────────────────────────────
+function pageActivities() {
+  return `<div class="section-gap">
+    <button class="btn full" onclick="openModal('act')">⚡ Registra attività</button>
+    <div class="grid2">
+      ${CATS.map(c => {
+        const acts = S.activities.filter(a => a.category === c.id);
+        const tm = acts.reduce((s,a) => s+a.duration, 0);
+        return `<div class="card" style="border-color:${c.c}22">
+          <div style="font-size:28px;margin-bottom:4px">${c.e}</div>
+          <div style="font-weight:600;font-size:13px">${c.l}</div>
+          <div style="font-weight:700;color:${c.c};font-size:14px">${tm>0?`${Math.floor(tm/60)}h ${tm%60}m`:'–'}</div>
+          <div style="font-size:11px;color:#8888aa">${acts.length} sessioni</div>
+        </div>`;
+      }).join('')}
+    </div>
+    <div class="card">
+      <div style="font-weight:700;margin-bottom:10px">Ultime attività</div>
+      ${S.activities.length === 0 ? '<div style="color:#8888aa;font-size:14px">Nessuna attività ancora.</div>' :
+        S.activities.slice(-10).reverse().map(a => {
+          const c = getCat(a.category);
+          return `<div class="row">
+            <span style="font-size:20px">${c.e}</span>
+            <div style="flex:1">
+              <div style="font-weight:600;font-size:13px">${c.l}</div>
+              <div style="font-size:11px;color:#8888aa">${fmtDate(a.date)}${a.note?' · '+a.note:''}</div>
+            </div>
+            <div style="font-weight:700;color:${c.c}">${a.duration}m</div>
+          </div>`;
+        }).join('')}
+    </div>
+  </div>`;
+}
+
+// ── ENGLISH ───────────────────────────────────────────────────────────────────
+function pageEnglish() {
+  const lv = S.profile.englishLevel || 'A1';
+  const lvXP = S.profile.englishXP || 0;
+  const lvIdx = ENG_LEVELS.indexOf(lv);
+  const dueWords = S.dict.filter(w => w.nextReview <= todayStr());
+
+  const tabs = ['home','reading','listening','speaking','vocab','review'];
+  const ticons = {home:'📊',reading:'📖',listening:'🎧',speaking:'🎤',vocab:'📝',review:'🔄'};
+
+  let body = '';
+
+  if (S.engTab === 'home') {
+    body = `
+      <div class="grid2">
+        <div class="stat-card"><div style="font-size:28px">📚</div><div class="val">${S.dict.length}</div><div class="lbl">Nel dizionario</div></div>
+        <div class="stat-card"><div style="font-size:28px">🔄</div><div class="val" style="color:${dueWords.length>0?'#f87171':'#34d399'}">${dueWords.length}</div><div class="lbl">Da ripassare</div></div>
+      </div>
+      <div class="card">
+        <div style="font-weight:700;margin-bottom:12px">Progressione livelli CEFR</div>
+        ${ENG_LEVELS.map((l,i) => `
+          <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px">
+            <span style="width:28px;font-size:13px;font-weight:700;color:${l===lv?'#f5c542':i<lvIdx?'#34d399':'#8888aa'}">${l}</span>
+            <div style="flex:1;height:7px;background:#22223a;border-radius:4px;overflow:hidden">
+              <div style="width:${i<lvIdx?'100%':i===lvIdx?lvXP/5+'%':'0%'};height:100%;background:${i<lvIdx?'#34d399':'#f5c542'};border-radius:4px"></div>
+            </div>
+            ${l===lv?'<span style="font-size:10px;color:#f5c542;font-weight:700">← sei qui</span>':''}
+          </div>`).join('')}
+      </div>`;
+  }
+
+  else if (S.engTab === 'reading' && !S.engExercise) {
+    const exs = READINGS[lv] || READINGS.A1;
+    body = `
+      <div style="color:#8888aa;font-size:13px;margin-bottom:8px">Esercizi per il livello <strong style="color:#f0f0f8">${lv}</strong>:</div>
+      ${exs.map(ex => `
+        <div class="card" style="cursor:pointer;border-color:rgba(124,106,247,0.4);margin-bottom:10px" onclick="startEngEx('${ex.id}')">
+          <div style="font-weight:700;margin-bottom:4px">${ex.title}</div>
+          <div style="font-size:13px;color:#8888aa">${ex.qs.length} domande · +80 XP se ≥70%</div>
+        </div>`).join('')}`;
+  }
+
+  else if (S.engTab === 'exercise' && S.engExercise) {
+    if (!S.engResult) {
+      body = `
+        <div class="card" style="margin-bottom:14px">
+          <div style="font-weight:700;color:#a89cf8;font-size:16px;margin-bottom:10px">${S.engExercise.title}</div>
+          <div style="font-size:14px;line-height:1.85">${S.engExercise.text}</div>
+          <div style="margin-top:12px"><button class="btn sm" onclick="speakText('${S.engExercise.text.replace(/'/g,"\\'")}')">🔊 Ascolta il testo</button></div>
+        </div>
+        ${S.engExercise.qs.map((q,i) => `
+          <div class="card" style="margin-bottom:14px">
+            <div style="font-weight:600;margin-bottom:12px;font-size:14px">${i+1}. ${q.q}</div>
+            ${q.opts.map(opt => `
+              <div class="eng-option ${S.engAnswers[i]===opt?'sel':''}" onclick="setEngAnswer(${i},'${opt.replace(/'/g,"\\'")}')">
+                ${opt}
+              </div>`).join('')}
+          </div>`).join('')}
+        <button class="btn full ${Object.keys(S.engAnswers).length < S.engExercise.qs.length ? 'outline' : ''}" onclick="submitEngEx()" ${Object.keys(S.engAnswers).length < S.engExercise.qs.length ? 'disabled' : ''}>✓ Controlla le risposte</button>`;
+    } else {
+      body = `
+        <div class="card glow" style="text-align:center;padding:28px">
+          <div style="font-size:56px">${S.engResult.sc>=70?'🎉':'💪'}</div>
+          <div style="font-family:'Space Grotesk',sans-serif;font-size:42px;font-weight:700;color:${S.engResult.sc>=70?'#34d399':'#fb923c'};margin:10px 0">${S.engResult.sc}%</div>
+          <div style="color:#8888aa">${S.engResult.ok}/${S.engResult.total} risposte corrette</div>
+          <div style="color:#a89cf8;margin-top:6px;font-weight:600">+${S.engResult.sc>=70?80:30} XP guadagnati!</div>
+          <div style="display:flex;gap:12px;justify-content:center;margin-top:20px">
+            <button class="btn outline" onclick="S.engTab='reading';S.engExercise=null;S.engResult=null;re()">← Torna</button>
+            <button class="btn" onclick="randomEngEx()">Altro esercizio</button>
+          </div>
+        </div>`;
+    }
+  }
+
+  else if (S.engTab === 'listening') {
+    const phrases = [
+      {en:'The early bird catches the worm.',it:'Chi dorme non piglia pesci.'},
+      {en:'Practice makes perfect.',it:'La pratica rende perfetti.'},
+      {en:'Every cloud has a silver lining.',it:'Non tutto il male vien per nuocere.'},
+      {en:'Actions speak louder than words.',it:'Le azioni parlano più delle parole.'},
+      {en:'Knowledge is power.',it:'La conoscenza è potere.'},
+      {en:"Don't judge a book by its cover.",it:'Non giudicare un libro dalla copertina.'},
+    ];
+    body = `<div class="card">
+      <div style="font-weight:700;margin-bottom:14px">🎧 Pratica l'ascolto</div>
+      ${phrases.map(p => `
+        <div class="row" style="gap:12px">
+          <div style="flex:1">
+            <div style="font-weight:600;font-size:14px">${p.en}</div>
+            <div style="font-size:12px;color:#8888aa;margin-top:3px">${p.it}</div>
+          </div>
+          <button class="btn sm outline" onclick="speakText('${p.en.replace(/'/g,"\\'")}')">🔊</button>
+        </div>`).join('')}
+    </div>`;
+  }
+
+  else if (S.engTab === 'speaking') {
+    body = `<div class="card glow">
+      <div style="font-weight:700;margin-bottom:10px">🎤 Pratica il parlato</div>
+      <div style="color:#8888aa;font-size:14px;margin-bottom:14px">Parla in inglese: l'AI Coach analizzerà pronuncia, grammatica e fluidità.</div>
+      <div style="margin-bottom:14px">
+        <div style="font-size:12px;color:#a89cf8;font-weight:600;margin-bottom:8px">💡 Argomenti suggeriti</div>
+        ${['Descrivi la tua giornata','Parla di un tuo hobby','Il tuo posto preferito','Un obiettivo futuro'].map(t =>
+          `<div style="background:#22223a;border-radius:10px;padding:8px 12px;font-size:13px;color:#8888aa;margin-bottom:6px">${t}</div>`
+        ).join('')}
+      </div>
+      <button class="btn full ${S.engSpeakLoading?'orange':''}" onclick="startSpeak()" ${S.engSpeakLoading?'disabled':''}>
+        ${S.engSpeakLoading?'⏳ Elaborazione...':'🎤 Parla ora'}
+      </button>
+      ${S.engSpeakResult ? `<div style="margin-top:14px;background:#22223a;border-radius:10px;padding:14px;font-size:14px;line-height:1.7;white-space:pre-wrap">${S.engSpeakResult}</div>` : ''}
+    </div>`;
+  }
+
+  else if (S.engTab === 'vocab') {
+    body = `
+      <div class="card" style="margin-bottom:10px">
+        <div style="font-weight:700;margin-bottom:12px">➕ Aggiungi parola</div>
+        <div style="display:flex;flex-direction:column;gap:8px">
+          <input class="inp" id="vw" placeholder="Parola in inglese" value="${S.vocabForm.word}" oninput="S.vocabForm.word=this.value">
+          <input class="inp" id="vt" placeholder="Traduzione italiana" value="${S.vocabForm.tr}" oninput="S.vocabForm.tr=this.value">
+          <input class="inp" id="ve" placeholder="Esempio d'uso" value="${S.vocabForm.ex}" oninput="S.vocabForm.ex=this.value">
+          <button class="btn full" onclick="addVocabWord()">Aggiungi al dizionario</button>
+        </div>
+      </div>
+      <div class="card" style="margin-bottom:10px">
+        <div style="font-weight:700;margin-bottom:8px">Parole suggerite</div>
+        <div style="display:flex;flex-wrap:wrap;gap:8px">
+          ${VOCAB_SUG.map(w => `<div onclick="fillVocab('${w.word}','${w.tr}','${w.ex}')" style="background:#22223a;border:1px solid rgba(124,106,247,0.18);border-radius:8px;padding:5px 12px;font-size:13px;cursor:pointer">${w.word}</div>`).join('')}
+        </div>
+      </div>
+      ${S.dict.length > 0 ? `<div class="card">
+        <div style="font-weight:700;margin-bottom:10px">📚 Il tuo dizionario (${S.dict.length})</div>
+        ${S.dict.map(w => `
+          <div class="row">
+            <div style="flex:1">
+              <div style="font-weight:700">${w.word}</div>
+              <div style="font-size:13px;color:#8888aa">${w.tr}</div>
+              ${w.ex ? `<div style="font-size:12px;color:#a89cf8;font-style:italic;margin-top:2px">${w.ex}</div>` : ''}
+            </div>
+            <div style="display:flex;gap:6px;align-items:center">
+              <span style="font-size:11px;color:#8888aa;background:#22223a;padding:2px 7px;border-radius:10px">×${w.reps||0}</span>
+              <button class="btn sm outline" onclick="speakText('${w.word}')">🔊</button>
+            </div>
+          </div>`).join('')}
+      </div>` : ''}`;
+  }
+
+  else if (S.engTab === 'review') {
+    if (dueWords.length === 0) {
+      body = `<div class="card" style="text-align:center;padding:36px">
+        <div style="font-size:48px;margin-bottom:8px">✅</div>
+        <div style="font-weight:700;font-size:16px">Tutto in ordine!</div>
+        <div style="color:#8888aa;font-size:14px;margin-top:4px">Nessuna parola da ripassare oggi.</div>
+      </div>`;
+    } else {
+      body = dueWords.map(w => `
+        <div class="card glow" style="margin-bottom:12px">
+          <div style="text-align:center;padding:8px 0">
+            <div style="font-size:28px;font-weight:700;margin-bottom:6px">${w.word}</div>
+            <div style="font-size:15px;color:#8888aa;margin-bottom:4px">${w.tr}</div>
+            ${w.ex ? `<div style="font-size:13px;color:#a89cf8;font-style:italic;margin-bottom:12px">${w.ex}</div>` : ''}
+            <button class="btn sm" onclick="speakText('${w.word}')">🔊 Pronuncia</button>
+          </div>
+          <div style="display:flex;gap:8px;margin-top:12px">
+            <button class="btn full red outline" onclick="reviewWord(${w.id},false)">❌ Non sapevo</button>
+            <button class="btn full green" onclick="reviewWord(${w.id},true)">✅ Sapevo</button>
+          </div>
+        </div>`).join('');
+    }
+  }
+
+  return `<div class="section-gap">
+    <div class="card glow">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
+        <div>
+          <div style="font-family:'Space Grotesk',sans-serif;font-weight:700;font-size:20px">🌍 English Hub</div>
+          <div style="color:#8888aa;font-size:13px">Livello: <span style="color:#f5c542;font-weight:700">${lv}</span></div>
+        </div>
+        <div style="text-align:right">
+          <div style="font-size:32px;font-weight:700;color:#f5c542;font-family:'Space Grotesk',sans-serif">${lv}</div>
+          <div style="font-size:11px;color:#8888aa">${lvXP}/500 XP</div>
+        </div>
+      </div>
+      <div style="height:7px;background:#22223a;border-radius:4px;overflow:hidden">
+        <div style="width:${Math.min(lvXP/5,100)}%;height:100%;background:linear-gradient(90deg,#f5c542,#fb923c);border-radius:4px;transition:width .5s"></div>
+      </div>
+    </div>
+    <div style="display:flex;gap:6px;overflow-x:auto;padding-bottom:4px">
+      ${tabs.map(t => `
+        <button onclick="setEngTab('${t}')" style="flex:0 0 auto;background:${S.engTab===t||((S.engTab==='exercise')&&t==='reading')?'#7c6af7':'#1a1a26'};color:${S.engTab===t||((S.engTab==='exercise')&&t==='reading')?'#fff':'#8888aa'};border:none;border-radius:10px;padding:8px 14px;font-weight:600;font-size:13px;cursor:pointer">
+          ${ticons[t]} ${t.charAt(0).toUpperCase()+t.slice(1)}
+        </button>`).join('')}
+    </div>
+    ${body}
+  </div>`;
+}
+
+// ── FOCUS / POMODORO ──────────────────────────────────────────────────────────
+function pageFocus() {
+  const MODES = {work:{l:'Focus',m:25,c:'#7c6af7'},short:{l:'Pausa breve',m:5,c:'#34d399'},long:{l:'Pausa lunga',m:15,c:'#60a5fa'}};
+  const mode = S.pomMode;
+  const total = MODES[mode].m * 60;
+  const elapsed = total - (S.pomMins*60 + S.pomSecs);
+  const pct = elapsed / total * 100;
+  const R = 75, circ = 2*Math.PI*R;
+
+  return `<div class="section-gap">
+    <div class="card">
+      <div style="display:flex;gap:8px;margin-bottom:20px;flex-wrap:wrap">
+        ${Object.entries(MODES).map(([k,v]) =>
+          `<button class="btn sm pomo-mode ${mode===k?'':'outline'}" style="border-color:${v.c};background:${mode===k?v.c:'transparent'};color:${mode===k?'#fff':v.c}" onclick="setPomMode('${k}')">${v.l}</button>`
+        ).join('')}
+      </div>
+      <div style="display:flex;flex-direction:column;align-items:center;gap:20px">
+        <div style="position:relative;width:170px;height:170px">
+          <svg width="170" height="170" style="transform:rotate(-90deg)">
+            <circle cx="85" cy="85" r="${R}" fill="none" stroke="#22223a" stroke-width="10"/>
+            <circle cx="85" cy="85" r="${R}" fill="none" stroke="${MODES[mode].c}" stroke-width="10"
+              stroke-dasharray="${circ}" stroke-dashoffset="${circ*(1-pct/100)}"
+              stroke-linecap="round" style="transition:stroke-dashoffset .8s"/>
+          </svg>
+          <div style="position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px">
+            <span style="font-family:'Space Grotesk',sans-serif;font-size:38px;font-weight:700">${String(S.pomMins).padStart(2,'0')}:${String(S.pomSecs).padStart(2,'0')}</span>
+            <span style="font-size:12px;color:#8888aa">${MODES[mode].l}</span>
+          </div>
+        </div>
+        <div style="display:flex;gap:12px">
+          <button class="btn" style="background:${MODES[mode].c};border-color:${MODES[mode].c}" onclick="togglePom()">${S.pomRunning?'⏸ Pausa':'▶ Avvia'}</button>
+          <button class="btn sm outline" onclick="resetPom()">↺ Reset</button>
+        </div>
+        <div style="display:flex;gap:8px;align-items:center">
+          ${[0,1,2,3].map(i => `<div style="width:10px;height:10px;border-radius:50%;background:${i<(S.pomSessions%4)?MODES.work.c:'#22223a'}"></div>`).join('')}
+          <span style="font-size:12px;color:#8888aa;margin-left:4px">🍅 ${S.pomSessions} sessioni</span>
+        </div>
+      </div>
+    </div>
+    <div class="card">
+      <div style="font-weight:700;margin-bottom:8px">💡 Tecnica Pomodoro</div>
+      <div style="font-size:14px;color:#8888aa;line-height:1.7">Lavora 25 minuti concentrato, poi pausa da 5 min. Ogni 4 cicli, pausa lunga da 15 min. Migliora la concentrazione e riduce l'affaticamento mentale.</div>
+    </div>
+  </div>`;
+}
+
+// ── STATS ─────────────────────────────────────────────────────────────────────
+function pageStats() {
+  const wDays = Array.from({length:7},(_,i) => {
+    const d = new Date(); d.setDate(d.getDate()-(6-i));
+    const ds = d.toISOString().split('T')[0];
+    const acts = S.activities.filter(a => a.date===ds);
+    return {date:ds, label:WD[d.getDay()], mins:acts.reduce((s,a)=>s+a.duration,0)};
+  });
+  const maxMins = Math.max(...wDays.map(d=>d.mins), 1);
+  const catStats = CATS.map(c => ({...c, mins:S.activities.filter(a=>a.category===c.id).reduce((s,a)=>s+a.duration,0)})).filter(c=>c.mins>0).sort((a,b)=>b.mins-a.mins);
+  const totalCatMins = catStats.reduce((s,c)=>s+c.mins,0);
+
+  return `<div class="section-gap">
+    <div class="card">
+      <div style="font-weight:700;margin-bottom:14px">📊 Attività settimanale</div>
+      <div style="display:flex;gap:6px;align-items:flex-end;height:120px">
+        ${wDays.map(d => `
+          <div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:4px">
+            <div style="font-size:10px;color:#8888aa;min-height:14px">${d.mins>0?d.mins+'m':''}</div>
+            <div style="width:100%;border-radius:5px 5px 0 0;background:${d.date===todayStr()?'#7c6af7':'#22223a'};height:${Math.max(d.mins/maxMins*90,d.mins>0?6:2)}px;transition:height .6s"></div>
+            <div style="font-size:11px;color:${d.date===todayStr()?'#7c6af7':'#8888aa'}">${d.label}</div>
+          </div>`).join('')}
+      </div>
+    </div>
+
+    <div class="card">
+      <div style="font-weight:700;margin-bottom:12px">📋 Completamento piano — settimana</div>
+      <div style="display:flex;gap:6px;align-items:flex-end;height:90px">
+        ${wDays.map(d => {
+          const items = S.schedule.filter(s => s.date===d.date);
+          const done = items.filter(s=>s.done).length;
+          const pct = items.length>0 ? done/items.length : 0;
+          return `<div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:4px">
+            <div style="font-size:10px;color:#8888aa;min-height:14px">${items.length>0?done+'/'+items.length:''}</div>
+            <div style="width:100%;border-radius:5px 5px 0 0;background:${pct===1&&items.length>0?'#34d399':pct>0?'#7c6af7':'#22223a'};height:${Math.max(pct*70,items.length>0?6:2)}px"></div>
+            <div style="font-size:11px;color:#8888aa">${d.label}</div>
+          </div>`;
+        }).join('')}
+      </div>
+      <div style="font-size:11px;color:#8888aa;margin-top:8px">🟢 Verde = giornata completata al 100%</div>
+    </div>
+
+    ${catStats.length > 0 ? `
+    <div class="card">
+      <div style="font-weight:700;margin-bottom:12px">Distribuzione categorie</div>
+      ${catStats.map(c => {
+        const pct = Math.round(c.mins/totalCatMins*100);
+        return `<div style="margin-bottom:10px">
+          <div style="display:flex;justify-content:space-between;margin-bottom:4px">
+            <span style="font-size:13px">${c.e} ${c.l}</span>
+            <span style="font-size:13px;color:${c.c};font-weight:700">${pct}%</span>
+          </div>
+          <div class="prog-bar" style="height:7px"><div class="prog-fill" style="width:${pct}%;background:${c.c}"></div></div>
+        </div>`;
+      }).join('')}
+    </div>` : ''}
+
+    <div class="card">
+      <div style="font-weight:700;margin-bottom:12px">😊 Umore settimanale</div>
+      <div style="display:flex;justify-content:space-around;align-items:center">
+        ${wDays.map(d => {
+          const m = S.moods.find(x => x.date===d.date);
+          return `<div style="display:flex;flex-direction:column;align-items:center;gap:4px">
+            <div style="font-size:24px">${m?['😔','😐','🙂','😊','🤩'][m.value-1]:'—'}</div>
+            <div style="font-size:11px;color:#8888aa">${d.label}</div>
+          </div>`;
+        }).join('')}
+      </div>
+    </div>
+
+    ${S.sleepLog.length > 0 ? `
+    <div class="card">
+      <div style="font-weight:700;margin-bottom:12px">🌙 Ore di sonno</div>
+      <div style="display:flex;gap:6px;align-items:flex-end;height:90px">
+        ${S.sleepLog.slice(-7).map(s => `
+          <div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:4px">
+            <div style="font-size:10px;color:#8888aa">${s.hours}h</div>
+            <div style="width:100%;border-radius:5px 5px 0 0;background:${s.hours>=7?'#34d399':s.hours>=6?'#f5c542':'#f87171'};height:${(s.hours/10)*80}px"></div>
+            <div style="font-size:10px;color:#8888aa">${fmtDate(s.date).split(' ')[0]}</div>
+          </div>`).join('')}
+      </div>
+    </div>` : ''}
+  </div>`;
+}
+
+// ── AI COACH ──────────────────────────────────────────────────────────────────
+function pageCoach() {
+  const chatHtml = S.chatMsgs.map(m => `
+    <div style="display:flex;justify-content:${m.r==='u'?'flex-end':'flex-start'};${m.r==='a'?'gap:8px;':''}">
+      ${m.r==='a'?'<div style="width:28px;height:28px;border-radius:50%;background:#7c6af7;display:flex;align-items:center;justify-content:center;font-size:14px;flex-shrink:0;align-self:flex-end">🤖</div>':''}
+      <div class="chat-bubble ${m.r==='u'?'user':'ai'}">${m.t.replace(/\n/g,'<br>')}</div>
+    </div>`).join('');
+
+  const quickBtns = S.chatMsgs.length <= 1 ? `
+    <div style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:8px">
+      ${['Come ottimizzare la mia giornata?','Consigli per studiare inglese','Come aumentare la motivazione?','Analizza i miei progressi'].map(q =>
+        `<button onclick="setCoachInput('${q.replace(/'/g,"\\'")}')" style="background:#1a1a26;border:1px solid rgba(124,106,247,0.18);border-radius:20px;padding:7px 14px;font-size:12px;color:#a89cf8;cursor:pointer">${q}</button>`
+      ).join('')}
+    </div>` : '';
+
+  return `
+    <div style="display:flex;flex-direction:column;height:calc(100dvh - 180px);gap:10px">
+      <div id="chat-msgs" style="flex:1;overflow-y:auto;display:flex;flex-direction:column;gap:10px;padding-bottom:4px">
+        ${chatHtml}
+        ${S.chatLoading ? `<div style="display:flex;gap:5px;padding:11px 15px;background:#1a1a26;border-radius:18px;width:fit-content;margin-left:36px">
+          <span class="pulse" style="width:8px;height:8px;background:#a89cf8;border-radius:50%;display:block"></span>
+          <span class="pulse" style="width:8px;height:8px;background:#a89cf8;border-radius:50%;display:block;animation-delay:.22s"></span>
+          <span class="pulse" style="width:8px;height:8px;background:#a89cf8;border-radius:50%;display:block;animation-delay:.44s"></span>
+        </div>` : ''}
+        <div id="chat-bottom"></div>
+      </div>
+      ${quickBtns}
+      <div style="display:flex;gap:8px">
+        <input class="inp" id="chat-inp" placeholder="Chiedi al tuo coach..." value="${S.chatInput}" oninput="S.chatInput=this.value" onkeydown="if(event.key==='Enter')sendChat()">
+        <button class="btn" onclick="sendChat()" ${S.chatLoading||!S.chatInput.trim()?'disabled':''}>➤</button>
+      </div>
+    </div>`;
+}
+
+// ── CALENDAR ──────────────────────────────────────────────────────────────────
+function pageCalendar() {
+  const sorted = [...S.events].sort((a,b) => a.date.localeCompare(b.date));
+  return `<div class="section-gap">
+    <button class="btn full" onclick="openModal('event')">📅 Aggiungi evento</button>
+    ${sorted.length === 0 ? `
+    <div class="card" style="text-align:center;padding:36px">
+      <div style="font-size:48px;margin-bottom:8px">📅</div>
+      <div style="font-weight:700">Nessun evento</div>
+      <div style="color:#8888aa;font-size:14px">Aggiungi visite, scadenze o impegni.</div>
+    </div>` : sorted.map(e => `
+    <div class="card" style="border-color:${e.date<todayStr()?'rgba(124,106,247,0.18)':'rgba(124,106,247,0.4)'}">
+      <div style="display:flex;gap:12px;align-items:center">
+        <div style="background:${e.date<todayStr()?'#22223a':'#7c6af7'};border-radius:12px;padding:6px 10px;text-align:center;min-width:52px">
+          <div style="font-size:10px;opacity:.8">${fmtDate(e.date).split(' ')[1]}</div>
+          <div style="font-size:20px;font-weight:700">${fmtDate(e.date).split(' ')[0]}</div>
+        </div>
+        <div style="flex:1">
+          <div style="font-weight:700">${e.title}</div>
+          ${e.time?`<div style="font-size:12px;color:#8888aa">🕐 ${e.time}</div>`:''}
+          ${e.note?`<div style="font-size:12px;color:#8888aa;margin-top:2px">${e.note}</div>`:''}
+        </div>
+        <button onclick="delEvent(${e.id})" style="background:none;border:none;color:#8888aa;font-size:20px;cursor:pointer">×</button>
+      </div>
+    </div>`).join('')}
+  </div>`;
+}
+
+// ── GOALS ─────────────────────────────────────────────────────────────────────
+function pageGoals() {
+  return `<div class="section-gap">
+    <button class="btn full" onclick="openModal('goal')">🎯 Nuovo obiettivo</button>
+    ${S.goals.length === 0 ? `
+    <div class="card" style="text-align:center;padding:36px">
+      <div style="font-size:48px;margin-bottom:8px">🎯</div>
+      <div style="font-weight:700">Nessun obiettivo</div>
+      <div style="color:#8888aa;font-size:14px">Imposta obiettivi per rimanere motivato.</div>
+    </div>` : S.goals.map(g => {
+      const pct = Math.min(g.progress/g.target*100,100);
+      return `<div class="card" style="opacity:${g.done?.7:1}">
+        <div style="display:flex;justify-content:space-between;margin-bottom:8px">
+          <div style="font-weight:700">${g.title}</div>
+          <button onclick="delGoal(${g.id})" style="background:none;border:none;color:#8888aa;font-size:18px;cursor:pointer">×</button>
+        </div>
+        <div class="prog-bar" style="margin-bottom:10px">
+          <div class="prog-fill" style="width:${pct}%;background:${g.done?'#34d399':'linear-gradient(90deg,#7c6af7,#a89cf8)'}"></div>
+        </div>
+        <div style="display:flex;justify-content:space-between;align-items:center">
+          <span style="font-size:13px;color:#8888aa">${g.progress}/${g.target} ${g.unit}</span>
+          ${!g.done ? `<div style="display:flex;gap:6px">
+            <button class="btn sm outline" onclick="stepGoal(${g.id},-1)">−</button>
+            <button class="btn sm" onclick="stepGoal(${g.id},1)">+</button>
+          </div>` : '<span style="color:#34d399;font-weight:700">✅ Completato!</span>'}
+        </div>
+      </div>`;
+    }).join('')}
+  </div>`;
+}
+
+// ── DIARY ─────────────────────────────────────────────────────────────────────
+function pageDiary() {
+  return `<div class="section-gap">
+    <button class="btn full" onclick="openModal('diary')">📔 Scrivi nel diario</button>
+    ${S.diary.length === 0 ? `
+    <div class="card" style="text-align:center;padding:36px">
+      <div style="font-size:48px;margin-bottom:8px">📔</div>
+      <div style="font-weight:700">Diario vuoto</div>
+      <div style="color:#8888aa;font-size:14px">Scrivi ogni giorno per tracciare i tuoi pensieri.</div>
+    </div>` : [...S.diary].reverse().map(e => `
+    <div class="card">
+      <div style="display:flex;justify-content:space-between;margin-bottom:8px">
+        <div style="font-size:13px;color:#8888aa;font-weight:600">${fmtDate(e.date)}</div>
+        <div style="font-size:20px">${['😔','😐','🙂','😊','🤩'][e.mood-1]}</div>
+      </div>
+      <div style="font-size:14px;line-height:1.75">${e.content}</div>
+    </div>`).join('')}
+  </div>`;
+}
+
+// ── SLEEP ─────────────────────────────────────────────────────────────────────
+function pageSleep() {
+  const avg = S.sleepLog.length > 0 ? (S.sleepLog.reduce((s,x)=>s+x.hours,0)/S.sleepLog.length).toFixed(1) : '–';
+  const last = S.sleepLog.length > 0 ? S.sleepLog[S.sleepLog.length-1].hours+'h' : '–';
+  return `<div class="section-gap">
+    <button class="btn full" onclick="openModal('sleep')">🌙 Registra sonno</button>
+    ${S.sleepLog.length > 0 ? `
+    <div class="grid3">
+      <div class="stat-card"><div style="font-size:22px">📊</div><div class="val">${avg}h</div><div class="lbl">Media</div></div>
+      <div class="stat-card"><div style="font-size:22px">🌙</div><div class="val">${last}</div><div class="lbl">Ultima notte</div></div>
+      <div class="stat-card"><div style="font-size:22px">📅</div><div class="val">${S.sleepLog.length}</div><div class="lbl">Notti</div></div>
+    </div>
+    ${[...S.sleepLog].reverse().map(s => `
+    <div class="card">
+      <div style="display:flex;justify-content:space-between;align-items:center">
+        <div>
+          <div style="font-weight:700">${fmtDate(s.date)}</div>
+          <div style="font-size:13px;color:#8888aa">🌙 ${s.bedtime} → ☀️ ${s.wake}</div>
+        </div>
+        <div style="text-align:right">
+          <div style="font-size:24px;font-weight:700;color:${s.hours>=7?'#34d399':s.hours>=6?'#f5c542':'#f87171'}">${s.hours}h</div>
+          <div style="font-size:11px;color:#8888aa">${s.hours>=7?'Ottimo':s.hours>=6?'Discreto':'Insufficiente'}</div>
+        </div>
+      </div>
+    </div>`).join('')}` : `
+    <div class="card" style="text-align:center;padding:36px">
+      <div style="font-size:48px;margin-bottom:8px">🌙</div>
+      <div style="font-weight:700">Nessun dato</div>
+      <div style="color:#8888aa;font-size:14px">Inizia a tracciare il tuo sonno.</div>
+    </div>`}
+  </div>`;
+}
+
+// ── BADGES ────────────────────────────────────────────────────────────────────
+function pageBadges() {
+  const badges = S.profile.badges || [];
+  const totalXP = BADGES.filter(b=>badges.includes(b.id)).reduce((s,b)=>s+b.xp,0);
+  return `<div class="section-gap">
+    <div class="card">
+      <div style="font-weight:700;margin-bottom:4px">🏆 I tuoi badge</div>
+      <div style="font-size:13px;color:#8888aa">${badges.length}/${BADGES.length} sbloccati · ${totalXP} XP da badge</div>
+    </div>
+    <div class="grid2">
+      ${BADGES.map(b => {
+        const u = badges.includes(b.id);
+        return `<div class="card" style="opacity:${u?1:.4};border-color:${u?'rgba(245,197,66,0.35)':'rgba(124,106,247,0.18)'}">
+          <div style="font-size:34px;margin-bottom:8px;filter:${u?'none':'grayscale(1)'}">${b.e}</div>
+          <div style="font-weight:700;font-size:13px">${b.l}</div>
+          <div style="font-size:11px;color:#8888aa;margin-top:4px;line-height:1.4">${b.d}</div>
+          <div style="font-size:11px;color:#f5c542;margin-top:6px;font-weight:600">+${b.xp} XP</div>
+          ${u?'<div style="font-size:10px;color:#34d399;margin-top:3px;font-weight:600">✅ Sbloccato</div>':''}
+        </div>`;
+      }).join('')}
+    </div>
+  </div>`;
+}
+
+// ── MODALS ────────────────────────────────────────────────────────────────────
+function renderModal() {
+  const m = S.modal;
+  if (!m) { document.getElementById('modals').innerHTML=''; return; }
+  const bodies = { act:modalAct, event:modalEvent, plan:modalPlan, goal:modalGoal, diary:modalDiary, sleep:modalSleep, profile:modalProfile };
+  const titles = { act:'⚡ Registra attività', event:'📅 Nuovo evento', plan:'📋 Pianifica attività', goal:'🎯 Nuovo obiettivo', diary:'📔 Diario di oggi', sleep:'🌙 Registra sonno', profile:'👤 Profilo' };
+  document.getElementById('modals').innerHTML = `
+    <div class="modal-overlay" onclick="closeModal()">
+      <div class="modal-box" onclick="event.stopPropagation()">
+        <div class="modal-header">
+          <span class="modal-title">${titles[m]||''}</span>
+          <button class="modal-close" onclick="closeModal()">×</button>
+        </div>
+        ${(bodies[m]||(() => ''))()}
+      </div>
+    </div>`;
+}
+
+function openModal(m) { S.modal=m; renderModal(); }
+function closeModal() { S.modal=null; renderModal(); }
+
+function modalAct() {
+  const f = S.actForm;
+  return `<div style="display:flex;flex-direction:column;gap:14px">
+    <div>
+      <div class="inp-label">CATEGORIA</div>
+      <div class="grid2" style="gap:6px">
+        ${CATS.map(c => `<div class="cat-chip ${f.category===c.id?'sel':''}" onclick="S.actForm.category='${c.id}';renderModal()">
+          <span style="font-size:16px">${c.e}</span><span style="font-size:12px;font-weight:600">${c.l}</span>
+        </div>`).join('')}
+      </div>
+    </div>
+    <div>
+      <div class="inp-label">DURATA: <strong style="color:#f0f0f8">${f.duration} minuti</strong></div>
+      <input type="range" class="inp" min="5" max="300" step="5" value="${f.duration}" oninput="S.actForm.duration=+this.value;this.previousElementSibling.querySelector('strong').textContent=this.value+' minuti'">
+      <div style="display:flex;justify-content:space-between;font-size:11px;color:#8888aa;margin-top:4px"><span>5m</span><span>1h</span><span>2h</span><span>3h</span><span>5h</span></div>
+    </div>
+    <input class="inp" placeholder="Note opzionali" value="${f.note}" oninput="S.actForm.note=this.value">
+    <button class="btn full" onclick="logAct()">✅ Registra attività</button>
+  </div>`;
+}
+
+function modalEvent() {
+  const f = S.eventForm;
+  return `<div style="display:flex;flex-direction:column;gap:12px">
+    <input class="inp" placeholder="Titolo (es. Visita medica, Riunione)" value="${f.title}" oninput="S.eventForm.title=this.value">
+    <div class="grid2">
+      <div><div class="inp-label">DATA</div><input type="date" class="inp" value="${f.date}" oninput="S.eventForm.date=this.value"></div>
+      <div><div class="inp-label">ORA</div><input type="time" class="inp" value="${f.time}" oninput="S.eventForm.time=this.value"></div>
+    </div>
+    <input class="inp" placeholder="Note aggiuntive" value="${f.note}" oninput="S.eventForm.note=this.value">
+    <button class="btn full" onclick="logEvent()" ${!f.title?'disabled':''}>✅ Salva evento</button>
+  </div>`;
+}
+
+function modalPlan() {
+  const f = S.planForm;
+  const PRIO_KEYS = ['high','normal','low'];
+  return `<div style="display:flex;flex-direction:column;gap:14px">
+    <input class="inp" placeholder="Cosa devi fare? (es. Studiare matematica)" value="${f.title}" oninput="S.planForm.title=this.value">
+    <div>
+      <div class="inp-label">CATEGORIA</div>
+      <div class="grid2" style="gap:6px">
+        ${CATS.map(c => `<div class="cat-chip ${f.category===c.id?'sel':''}" onclick="S.planForm.category='${c.id}';renderModal()">
+          <span style="font-size:16px">${c.e}</span><span style="font-size:12px;font-weight:600">${c.l}</span>
+        </div>`).join('')}
+      </div>
+    </div>
+    <div class="grid2">
+      <div>
+        <div class="inp-label">INIZIO</div>
+        <select class="inp" onchange="S.planForm.startTime=this.value">
+          ${TIME_SLOTS.map(t => `<option value="${t}" ${f.startTime===t?'selected':''}>${t}</option>`).join('')}
+        </select>
+      </div>
+      <div>
+        <div class="inp-label">FINE</div>
+        <select class="inp" onchange="S.planForm.endTime=this.value">
+          ${TIME_SLOTS.map(t => `<option value="${t}" ${f.endTime===t?'selected':''}>${t}</option>`).join('')}
+        </select>
+      </div>
+    </div>
+    <div>
+      <div class="inp-label">PRIORITÀ</div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap">
+        ${PRIO_KEYS.map(k => `<button class="btn sm ${f.priority===k?'':'outline'}" style="border-color:${PRIO[k].c};background:${f.priority===k?PRIO[k].c:'transparent'};color:${f.priority===k?'#fff':PRIO[k].c}" onclick="S.planForm.priority='${k}';renderModal()">${PRIO[k].l}</button>`).join('')}
+      </div>
+    </div>
+    <input class="inp" placeholder="Note opzionali" value="${f.note}" oninput="S.planForm.note=this.value">
+    <button class="btn full" onclick="logPlan()" ${!f.title.trim()?'disabled':''}>✅ Aggiungi al piano</button>
+  </div>`;
+}
+
+function modalGoal() {
+  const f = S.goalForm;
+  return `<div style="display:flex;flex-direction:column;gap:12px">
+    <input class="inp" placeholder="Obiettivo (es. Correre ogni giorno)" value="${f.title}" oninput="S.goalForm.title=this.value">
+    <div class="grid2">
+      <div><div class="inp-label">TARGET</div><input type="number" class="inp" value="${f.target}" min="1" oninput="S.goalForm.target=+this.value"></div>
+      <div><div class="inp-label">UNITÀ</div><input class="inp" placeholder="giorni, volte..." value="${f.unit}" oninput="S.goalForm.unit=this.value"></div>
+    </div>
+    <button class="btn full" onclick="logGoal()" ${!f.title?'disabled':''}>✅ Crea obiettivo</button>
+  </div>`;
+}
+
+function modalDiary() {
+  const emojis = ['😔','😐','🙂','😊','🤩'];
+  return `<div style="display:flex;flex-direction:column;gap:14px">
+    <div>
+      <div style="font-size:13px;color:#8888aa;margin-bottom:10px">Come ti senti oggi?</div>
+      <div style="display:flex;gap:14px;justify-content:center">
+        ${emojis.map((e,i) => `<div onclick="S.moodForm=${i+1};renderModal()" style="font-size:32px;cursor:pointer;transition:all .2s;opacity:${S.moodForm===i+1?1:.4};transform:${S.moodForm===i+1?'scale(1.3)':'scale(1)'}">${e}</div>`).join('')}
+      </div>
+    </div>
+    <textarea class="inp" placeholder="Scrivi i tuoi pensieri, riflessioni, obiettivi..." style="min-height:130px;resize:none;line-height:1.6" oninput="S.diaryForm=this.value">${S.diaryForm}</textarea>
+    <button class="btn full" onclick="logDiary()" ${!S.diaryForm.trim()?'disabled':''}>✅ Salva nel diario</button>
+  </div>`;
+}
+
+function modalSleep() {
+  const f = S.sleepForm;
+  return `<div style="display:flex;flex-direction:column;gap:14px">
+    <div class="grid2">
+      <div><div class="inp-label">🌙 ORA DI ANDARE A LETTO</div><input type="time" class="inp" value="${f.bedtime}" oninput="S.sleepForm.bedtime=this.value"></div>
+      <div><div class="inp-label">☀️ ORA DI SVEGLIA</div><input type="time" class="inp" value="${f.wake}" oninput="S.sleepForm.wake=this.value"></div>
+    </div>
+    <button class="btn full" onclick="logSleep()">✅ Registra</button>
+  </div>`;
+}
+
+function modalProfile() {
+  const p = S.profile;
+  const avatars = ['🦁','🐯','🦊','🐺','🦅','🐉','🦋','⚡','🌟','🔥','🎯','💎'];
+  return `<div style="display:flex;flex-direction:column;gap:14px">
+    <div style="text-align:center">
+      <div style="font-size:60px;margin-bottom:10px">${p.avatar}</div>
+      <div style="display:flex;flex-wrap:wrap;gap:10px;justify-content:center;margin-bottom:10px">
+        ${avatars.map(a => `<div onclick="S.profile.avatar='${a}';saveState();renderModal();renderHeader()" style="font-size:28px;cursor:pointer;opacity:${p.avatar===a?1:.4};transform:${p.avatar===a?'scale(1.2)':'scale(1)'};transition:all .2s">${a}</div>`).join('')}
+      </div>
+    </div>
+    <input class="inp" placeholder="Il tuo nome" value="${p.name}" oninput="S.profile.name=this.value;saveState()">
+    <div class="card" style="background:#1a1a26;padding:14px">
+      <div class="grid2" style="gap:10px;text-align:center">
+        <div><div style="font-weight:700;font-size:20px;color:#7c6af7">Lv.${p.level||1}</div><div style="font-size:11px;color:#8888aa">Livello</div></div>
+        <div><div style="font-weight:700;font-size:20px;color:#f5c542">${p.xp||0}</div><div style="font-size:11px;color:#8888aa">XP totali</div></div>
+        <div><div style="font-weight:700;font-size:20px;color:#fb923c">🔥${p.streak||0}</div><div style="font-size:11px;color:#8888aa">Streak</div></div>
+        <div><div style="font-weight:700;font-size:20px;color:#f472b6">${(p.badges||[]).length}</div><div style="font-size:11px;color:#8888aa">Badge</div></div>
+      </div>
+    </div>
+    <button class="btn full" onclick="closeModal();re()">✅ Salva profilo</button>
+  </div>`;
+}
+
+// ── ACTIONS ───────────────────────────────────────────────────────────────────
+function bindEvents() {
+  // scroll chat to bottom
+  const cb = document.getElementById('chat-bottom');
+  if (cb) cb.scrollIntoView();
+}
+
+function logAct() {
+  const f = S.actForm;
+  S.activities.push({...f, id:Date.now(), date:todayStr(), time:new Date().toISOString()});
+  addXP(f.duration >= 60 ? 50 : 25);
+  if (S.activities.length === 1) addBadge('first_task');
+  const sm = S.activities.filter(a=>a.category==='study').reduce((s,a)=>s+a.duration,0);
+  if (sm >= 600) addBadge('study_master');
+  if (S.activities.filter(a=>a.category==='sport').length >= 10) addBadge('sport_hero');
+  // check streak
+  checkStreak();
+  closeModal(); re();
+}
+
+function logEvent() {
+  const f = S.eventForm;
+  if (!f.title) return;
+  S.events.push({...f, id:Date.now()});
+  S.eventForm = {title:'', date:todayStr(), time:'09:00', note:''};
+  closeModal(); re();
+}
+
+function logPlan() {
+  const f = S.planForm;
+  if (!f.title.trim()) return;
+  S.schedule.push({...f, id:Date.now(), date:S.plannerDate, done:false, doneAt:null});
+  const dayCount = S.schedule.filter(s => s.date===S.plannerDate).length;
+  if (dayCount >= 5) addBadge('planner_pro');
+  addXP(5);
+  S.planForm = {title:'', category:'study', startTime:'09:00', endTime:'10:00', priority:'normal', note:''};
+  closeModal(); re();
+}
+
+function logGoal() {
+  const f = S.goalForm;
+  if (!f.title) return;
+  S.goals.push({...f, id:Date.now(), progress:0, done:false});
+  S.goalForm = {title:'', target:7, unit:'giorni'};
+  closeModal(); re();
+}
+
+function logDiary() {
+  if (!S.diaryForm.trim()) return;
+  S.diary.push({id:Date.now(), date:todayStr(), content:S.diaryForm, mood:S.moodForm});
+  S.moods.push({date:todayStr(), value:S.moodForm});
+  addXP(20);
+  if (S.diary.length >= 7) addBadge('diary_7');
+  S.diaryForm = '';
+  closeModal(); re();
+}
+
+function logSleep() {
+  const f = S.sleepForm;
+  const bed = new Date(`${todayStr()}T${f.bedtime}`);
+  const wake = new Date(`${todayStr()}T${f.wake}`);
+  let h = (wake-bed)/3600000; if(h<0) h+=24;
+  S.sleepLog.push({id:Date.now(), date:todayStr(), ...f, hours:Math.round(h*10)/10});
+  closeModal(); re();
+}
+
+function togglePlan(id) {
+  const item = S.schedule.find(x => x.id===id);
+  if (!item) return;
+  item.done = !item.done;
+  item.doneAt = item.done ? new Date().toISOString() : null;
+  if (item.done) {
+    addXP(30);
+    addBadge('first_task');
+    const dayItems = S.schedule.filter(x => x.date===item.date);
+    if (dayItems.length > 1 && dayItems.every(x=>x.done)) addBadge('perfect_day');
+  }
+  re();
+}
+
+function delPlan(id) { S.schedule = S.schedule.filter(x => x.id!==id); re(); }
+function delEvent(id) { S.events = S.events.filter(x => x.id!==id); re(); }
+function delGoal(id) { S.goals = S.goals.filter(x => x.id!==id); re(); }
+
+function stepGoal(id, delta) {
+  const g = S.goals.find(x => x.id===id);
+  if (!g) return;
+  g.progress = Math.max(0, Math.min(g.target, g.progress+delta));
+  if (g.progress >= g.target) { g.done=true; addBadge('goal_done'); }
+  re();
+}
+
+function setPlannerDate(d) { S.plannerDate=d; re(); }
+
+// POMODORO
+function setPomMode(m) {
+  const M={work:25,short:5,long:15};
+  if (S.pomInterval) { clearInterval(S.pomInterval); S.pomInterval=null; }
+  S.pomMode=m; S.pomMins=M[m]; S.pomSecs=0; S.pomRunning=false; re();
+}
+function togglePom() {
+  if (S.pomRunning) {
+    clearInterval(S.pomInterval); S.pomInterval=null; S.pomRunning=false; re(); return;
+  }
+  S.pomRunning=true;
+  S.pomInterval = setInterval(() => {
+    if (S.pomSecs===0) {
+      if (S.pomMins===0) {
+        clearInterval(S.pomInterval); S.pomInterval=null; S.pomRunning=false;
+        const M={work:25,short:5,long:15};
+        if (S.pomMode==='work') { S.pomSessions++; addXP(30); if(S.pomSessions>=10)addBadge('pomodoro_10'); }
+        S.pomMins=M[S.pomMode]; S.pomSecs=0;
+        re(); return;
+      }
+      S.pomMins--; S.pomSecs=59;
+    } else S.pomSecs--;
+    // update only timer display without full re-render
+    const el = document.querySelector('.pomo-time');
+    if (el) el.textContent=`${String(S.pomMins).padStart(2,'0')}:${String(S.pomSecs).padStart(2,'0')}`;
+    else re();
+  }, 1000);
+  re();
+}
+function resetPom() {
+  if (S.pomInterval) { clearInterval(S.pomInterval); S.pomInterval=null; }
+  const M={work:25,short:5,long:15};
+  S.pomRunning=false; S.pomMins=M[S.pomMode]; S.pomSecs=0; re();
+}
+
+// ENGLISH
+function setEngTab(t) { S.engTab=t; S.engExercise=null; S.engResult=null; re(); }
+
+function startEngEx(id) {
+  const lv = S.profile.englishLevel||'A1';
+  const exs = READINGS[lv]||READINGS.A1;
+  S.engExercise = exs.find(x=>x.id===id);
+  S.engAnswers = {};
+  S.engResult = null;
+  S.engTab = 'exercise';
+  re();
+}
+
+function setEngAnswer(i, opt) {
+  S.engAnswers = {...S.engAnswers, [i]:opt};
+  re();
+}
+
+function submitEngEx() {
+  const ex = S.engExercise;
+  let ok=0;
+  ex.qs.forEach((q,i) => { if(S.engAnswers[i]===q.a) ok++; });
+  const sc = Math.round(ok/ex.qs.length*100);
+  S.engResult = {ok, total:ex.qs.length, sc};
+  const gain = sc>=70?80:30;
+  addXP(gain);
+  const lv = S.profile.englishLevel||'A1';
+  const lvIdx = ENG_LEVELS.indexOf(lv);
+  const newXP = (S.profile.englishXP||0)+gain;
+  if (newXP>=500 && lvIdx<ENG_LEVELS.length-1) {
+    S.profile.englishXP=newXP-500;
+    S.profile.englishLevel=ENG_LEVELS[lvIdx+1];
+  } else S.profile.englishXP=newXP;
+  addBadge('english_start');
+  saveState(); re();
+}
+
+function randomEngEx() {
+  const lv = S.profile.englishLevel||'A1';
+  const exs = READINGS[lv]||READINGS.A1;
+  S.engExercise = exs[Math.floor(Math.random()*exs.length)];
+  S.engAnswers={}; S.engResult=null; re();
+}
+
+function speakText(txt) {
+  if ('speechSynthesis' in window) {
+    const u = new SpeechSynthesisUtterance(txt);
+    u.lang='en-US'; u.rate=.85;
+    window.speechSynthesis.speak(u);
+  }
+}
+
+function startSpeak() {
+  const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+  if (!SR) { S.engSpeakResult='⚠️ Riconoscimento vocale non supportato su questo browser.'; re(); return; }
+  const rec = new SR(); rec.lang='en-US'; rec.interimResults=false;
+  S.engSpeakLoading=true; S.engSpeakResult='🎤 In ascolto...'; re();
+  rec.onresult = async e => {
+    const tr = e.results[0][0].transcript;
+    S.engSpeakResult='Elaboro con AI...'; re();
+    try {
+      const lv = S.profile.englishLevel||'A1';
+      const res = await fetch('https://api.anthropic.com/v1/messages',{
+        method:'POST',
+        headers:{'Content-Type':'application/json','anthropic-version':'2023-06-01','anthropic-dangerous-direct-browser-access':'true'},
+        body:JSON.stringify({model:'claude-sonnet-4-6',max_tokens:300,
+          system:`Sei un coach di inglese. Lo studente è al livello ${lv}. Valuta in 3 frasi: grammatica, fluidità, vocabolario. Sii incoraggiante. Rispondi in italiano.`,
+          messages:[{role:'user',content:`Lo studente ha detto: "${tr}"`}]})
+      });
+      const data = await res.json();
+      S.engSpeakResult=`🎤 Hai detto: "${tr}"\n\n${data.content?.[0]?.text||''}`;
+    } catch { S.engSpeakResult=`🎤 Hai detto: "${tr}"\n\nNessuna connessione AI.`; }
+    S.engSpeakLoading=false; re();
+  };
+  rec.onerror=()=>{S.engSpeakLoading=false;S.engSpeakResult='Errore microfono.';re();};
+  rec.start();
+}
+
+function addVocabWord() {
+  const f = S.vocabForm;
+  if (!f.word.trim()) return;
+  S.dict.push({...f, id:Date.now(), nextReview:todayStr(), interval:1, reps:0});
+  S.vocabForm={word:'',tr:'',ex:''};
+  addXP(10);
+  if(S.dict.length>=50) addBadge('vocab_50');
+  re();
+}
+
+function fillVocab(word,tr,ex) { S.vocabForm={word,tr,ex}; re(); }
+
+function reviewWord(id, knew) {
+  const w = S.dict.find(x=>x.id===id);
+  if(!w) return;
+  const ni = knew ? Math.max(w.interval*2,1) : 1;
+  const next = new Date(); next.setDate(next.getDate()+ni);
+  w.interval=ni; w.reps=knew?(w.reps||0)+1:0; w.nextReview=next.toISOString().split('T')[0];
+  if(knew) addXP(5);
+  re();
+}
+
+// AI COACH
+function setCoachInput(t) { S.chatInput=t; re(); setTimeout(()=>{ const i=document.getElementById('chat-inp');if(i)i.value=t;},50); }
+
+async function sendChat() {
+  const txt = S.chatInput.trim();
+  if (!txt || S.chatLoading) return;
+  S.chatMsgs.push({r:'u',t:txt});
+  S.chatInput=''; S.chatLoading=true; re();
+
+  const todayPlan = S.schedule.filter(s=>s.date===todayStr());
+  const todayDone = todayPlan.filter(s=>s.done).length;
+  const p = S.profile;
+  const sys = `Sei LifeOS Coach, assistente AI personale. Rispondi SEMPRE in italiano, conciso (max 4 frasi), motivante e personalizzato.
+Profilo: nome=${p.name||'Utente'}, livello=${p.level||1} (${p.xp||0} XP), streak=${p.streak||0} giorni, badge=${(p.badges||[]).length}, inglese=${p.englishLevel||'A1'}.
+Piano oggi: ${todayDone}/${todayPlan.length} completate.
+Ultime attività: ${S.activities.slice(-5).map(a=>a.category+' '+a.duration+'min').join(', ')||'nessuna'}.`;
+
+  const history = S.chatMsgs.slice(-12).map(m=>({role:m.r==='u'?'user':'assistant',content:m.t}));
+
+  try {
+    const res = await fetch('https://api.anthropic.com/v1/messages',{
+      method:'POST',
+      headers:{'Content-Type':'application/json','anthropic-version':'2023-06-01','anthropic-dangerous-direct-browser-access':'true'},
+      body:JSON.stringify({model:'claude-sonnet-4-6',max_tokens:500,system:sys,messages:history})
+    });
+    if(!res.ok){const e=await res.json();throw new Error(e.error?.message||'HTTP '+res.status);}
+    const data=await res.json();
+    S.chatMsgs.push({r:'a',t:data.content?.[0]?.text||'Non riesco a rispondere.'});
+  } catch(e) {
+    S.chatMsgs.push({r:'a',t:`⚠️ Errore: ${e.message}. Riprova!`});
+  }
+  S.chatLoading=false; re();
+}
+
+// STREAK CHECK
+function checkStreak() {
+  const td=todayStr();
+  if(S.profile.lastActive!==td){
+    const y=new Date();y.setDate(y.getDate()-1);const ys=y.toISOString().split('T')[0];
+    const ns=S.profile.lastActive===ys?(S.profile.streak||0)+1:1;
+    S.profile.lastActive=td; S.profile.streak=ns;
+    if(ns>=3)addBadge('streak_3');
+    if(ns>=7)addBadge('streak_7');
+    saveState();
+  }
+}
+
+// ── INIT ──────────────────────────────────────────────────────────────────────
+render();
+</script>
+</body>
+</html>
