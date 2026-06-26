@@ -271,6 +271,11 @@ const S = {
   sleepLog: load('lo_sleep', []),
   goals: load('lo_goals', []),
   dict: load('lo_dict', []),
+  sleepAlarm: load('lo_alarm', { enabled: false, time: '07:00', ringing: false }),
+  notifiedTaskIds: load('lo_notified', []),
+  pomLinkedTaskId: load('lo_pom_link', null),
+  editingDiaryId: null,
+  editingSleepId: null,
   // UI States
   modal: null,
   plannerDate: todayStr(),
@@ -312,6 +317,9 @@ function saveState() {
   save('lo_sleep', S.sleepLog);
   save('lo_goals', S.goals);
   save('lo_dict', S.dict);
+  save('lo_alarm', S.sleepAlarm);
+  save('lo_notified', S.notifiedTaskIds);
+  save('lo_pom_link', S.pomLinkedTaskId);
 }
 
 // ── UTILITIES & HELPER FUNCTIONS ──────────────────────────────────────────────
@@ -610,7 +618,10 @@ function pagePlanner() {
       </div>
     </div>` : ''}
 
-    <button class="btn full" onclick="openModal('plan')">＋ Aggiungi al piano</button>
+    <div style="display:flex;gap:10px">
+      <button class="btn full" style="flex:1" onclick="openModal('plan')">＋ Aggiungi al piano</button>
+      <button class="btn outline full" style="flex:1" onclick="openRepeatScheduleModal()">🔄 Rendi ripetibile</button>
+    </div>
 
     <!-- Timeline -->
     ${items.length === 0 ? `
@@ -698,6 +709,7 @@ function pageEnglish() {
 
   let body = '';
   if (S.engTab === 'home') {
+    const todayEngPlans = S.schedule.filter(x => x.date === todayStr() && (x.category === 'english' || (x.title && /inglese|english/i.test(x.title))));
     body = `
       <div class="grid2">
         <div class="stat-card"><div style="font-size:24px">📚</div><div class="val">${S.dict.length}</div><div class="lbl">Dizionario</div></div>
@@ -713,6 +725,27 @@ function pageEnglish() {
             </div>
             ${l===lv?'<span style="font-size:9px;color:#f5c542;font-weight:700">Adesso</span>':''}
           </div>`).join('')}
+      </div>
+      
+      <!-- English Agenda Plans -->
+      <div class="card" style="border-color:rgba(245,197,66,0.3)">
+        <div style="font-weight:700;margin-bottom:8px;display:flex;align-items:center;gap:6px">
+          <span>🌍</span> Compiti d'Inglese per Oggi
+        </div>
+        ${todayEngPlans.length === 0 ? `
+          <div style="font-size:12px;color:var(--text-secondary)">Nessun compito d'Inglese in programma per oggi. Puoi pianificarne uno dall'Agenda!</div>
+        ` : todayEngPlans.map(p => `
+          <div style="display:flex;align-items:center;justify-content:space-between;padding:8px 0;border-bottom:1px solid rgba(245,197,66,0.08)">
+            <div style="display:flex;align-items:center;gap:8px">
+              <input type="checkbox" style="width:16px;height:16px;cursor:pointer" ${p.done?'checked':''} onclick="togglePlan(${p.id})">
+              <div>
+                <span style="font-size:13px;font-weight:600;text-decoration:${p.done?'line-through':''};color:${p.done?'var(--text-secondary)':'var(--text-primary)'}">${p.title}</span>
+                <div style="font-size:11px;color:var(--text-secondary)">🕒 ${p.startTime} - ${p.endTime}</div>
+              </div>
+            </div>
+            ${p.done ? `<span style="font-size:11px;color:var(--success);font-weight:bold">✓ Fatto (+50 EN XP)</span>` : `<span style="font-size:11px;color:#f5c542">In programma</span>`}
+          </div>
+        `).join('')}
       </div>`;
   }
 
@@ -889,6 +922,7 @@ function pageFocus() {
   const elapsed = total - (S.pomMins*60 + S.pomSecs);
   const pct = elapsed / total * 100;
   const R = 65, circ = 2*Math.PI*R;
+  const todayTasks = S.schedule.filter(x => x.date === todayStr() && !x.done);
 
   return `<div class="section-gap">
     <div class="card">
@@ -902,8 +936,8 @@ function pageFocus() {
           <svg width="150" height="150" style="transform:rotate(-90deg)">
             <circle cx="75" cy="75" r="${R}" fill="none" stroke="#22223a" stroke-width="8"/>
             <circle cx="75" cy="75" r="${R}" fill="none" stroke="${MODES[mode].c}" stroke-width="8"
-              stroke-dasharray="${circ}" stroke-dashoffset="${circ*(1-pct/100)}"
-              stroke-linecap="round" style="transition:stroke-dashoffset .8s"/>
+               stroke-dasharray="${circ}" stroke-dashoffset="${circ*(1-pct/100)}"
+               stroke-linecap="round" style="transition:stroke-dashoffset .8s"/>
           </svg>
           <div style="position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:1px">
             <span style="font-family:'Space Grotesk',sans-serif;font-size:32px;font-weight:700">${String(S.pomMins).padStart(2,'0')}:${String(S.pomSecs).padStart(2,'0')}</span>
@@ -919,6 +953,27 @@ function pageFocus() {
           <span style="font-size:11px;color:var(--text-secondary);margin-left:4px">🍅 ${S.pomSessions} sessioni</span>
         </div>
       </div>
+    </div>
+
+    <!-- Collegamento Attività in Agenda -->
+    <div class="card" style="border-color:rgba(124,106,247,0.3)">
+      <div style="font-weight:700;font-size:13px;margin-bottom:8px;display:flex;align-items:center;gap:6px">
+        <span>🔗</span> Collega ad Attività in Agenda
+      </div>
+      ${todayTasks.length === 0 ? `
+        <div style="font-size:12px;color:var(--text-secondary)">Nessuna attività programmata rimasta per oggi. Creane una nella sezione Piano!</div>
+      ` : `
+        <div style="font-size:11.5px;color:var(--text-secondary);margin-bottom:8px">Al termine della sessione di Focus, il compito selezionato verrà automaticamente impostato come completato e registrato.</div>
+        <select class="inp" onchange="S.pomLinkedTaskId = this.value ? +this.value : null; saveState(); re();" style="font-size:13px;padding:8px">
+          <option value="">-- Seleziona un compito da completare --</option>
+          ${todayTasks.map(t => `<option value="${t.id}" ${S.pomLinkedTaskId === t.id ? 'selected' : ''}>[${getCat(t.category).e} ${getCat(t.category).l}] ${t.title} (${t.startTime})</option>`).join('')}
+        </select>
+        ${S.pomLinkedTaskId ? `
+          <div style="margin-top:8px;font-size:11.5px;color:var(--primary);font-weight:600;display:flex;align-items:center;gap:4px">
+            <span>🎯</span> Collegato a: "${S.schedule.find(x => x.id === S.pomLinkedTaskId)?.title || 'Compito'}"
+          </div>
+        ` : ''}
+      `}
     </div>
   </div>`;
 }
@@ -1071,7 +1126,13 @@ function pageDiary() {
     <div class="card">
       <div style="display:flex;justify-content:space-between;margin-bottom:6px">
         <div style="font-size:12px;color:var(--text-secondary);font-weight:600">${fmtDate(e.date)}</div>
-        <div style="font-size:18px">${['😔','😐','🙂','😊','🤩'][e.mood-1]}</div>
+        <div style="display:flex;align-items:center;gap:10px">
+          <div style="font-size:18px">${['😔','😐','🙂','😊','🤩'][e.mood-1]}</div>
+          <div style="display:flex;gap:6px">
+            <span onclick="startEditDiary(${e.id})" style="cursor:pointer;font-size:13px;opacity:0.6" title="Modifica">✏️</span>
+            <span onclick="deleteDiary(${e.id})" style="cursor:pointer;font-size:13px;opacity:0.6" title="Elimina">🗑️</span>
+          </div>
+        </div>
       </div>
       <div style="font-size:13.5px;line-height:1.65">${e.content}</div>
     </div>`).join('')}
@@ -1081,8 +1142,38 @@ function pageDiary() {
 function pageSleep() {
   const avg = S.sleepLog.length > 0 ? (S.sleepLog.reduce((s,x)=>s+x.hours,0)/S.sleepLog.length).toFixed(1) : '–';
   const last = S.sleepLog.length > 0 ? S.sleepLog[S.sleepLog.length-1].hours+'h' : '–';
+  const alarm = S.sleepAlarm || { enabled: false, time: '07:00', ringing: false };
+
   return `<div class="section-gap">
     <button class="btn full" onclick="openModal('sleep')">🌙 Monitora riposo notturno</button>
+    
+    <!-- Alarm card -->
+    <div class="card ${alarm.ringing ? 'pulse' : ''}" style="border-color:${alarm.ringing ? 'var(--danger)' : 'rgba(124,106,247,0.35)'};background:${alarm.ringing ? 'rgba(239,68,68,0.1)' : 'transparent'};margin-bottom:12px">
+      <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px">
+        <div style="display:flex;align-items:center;gap:10px">
+          <span style="font-size:24px">${alarm.ringing ? '⏰' : '🔔'}</span>
+          <div>
+            <div style="font-weight:700;font-size:14px">Sveglia Personale</div>
+            <div style="font-size:12px;color:var(--text-secondary)">
+              ${alarm.enabled ? `Attiva alle ore <strong>${alarm.time}</strong>` : 'Disattivata'}
+            </div>
+          </div>
+        </div>
+        <div style="display:flex;align-items:center;gap:8px">
+          <input type="time" class="inp" style="width:100px;padding:4px 8px;margin:0" value="${alarm.time}" onchange="updateSleepAlarmTime(this.value)">
+          <button class="btn sm ${alarm.enabled ? '' : 'outline'}" style="margin:0" onclick="toggleSleepAlarmEnabled()">
+            ${alarm.enabled ? 'Disattiva' : 'Attiva'}
+          </button>
+        </div>
+      </div>
+      ${alarm.ringing ? `
+        <div style="margin-top:14px;text-align:center">
+          <div style="font-size:13px;font-weight:bold;color:var(--danger);margin-bottom:8px">🔔 SVEGLIA IN CORSO! 🔔</div>
+          <button class="btn full" style="background:var(--danger);border-color:var(--danger)" onclick="dismissRingingAlarm()">Spegni Sveglia 🔇</button>
+        </div>
+      ` : ''}
+    </div>
+
     ${S.sleepLog.length > 0 ? `
     <div class="grid3">
       <div class="stat-card"><div style="font-size:20px">📊</div><div class="val">${avg}h</div><div class="lbl">Media</div></div>
@@ -1093,7 +1184,11 @@ function pageSleep() {
     <div class="card">
       <div style="display:flex;justify-content:space-between;align-items:center">
         <div>
-          <div style="font-weight:700;font-size:13px">${fmtDate(s.date)}</div>
+          <div style="font-weight:700;font-size:13px;display:flex;align-items:center;gap:10px">
+            <span>${fmtDate(s.date)}</span>
+            <span onclick="startEditSleep(${s.id})" style="cursor:pointer;font-size:13px;opacity:0.6" title="Modifica">✏️</span>
+            <span onclick="deleteSleep(${s.id})" style="cursor:pointer;font-size:13px;opacity:0.6" title="Elimina">🗑️</span>
+          </div>
           <div style="font-size:11.5px;color:var(--text-secondary)">🌙 ${s.bedtime} → ☀️ ${s.wake}</div>
         </div>
         <div style="text-align:right">
@@ -1135,8 +1230,8 @@ function pageBadges() {
 function renderModal() {
   const m = S.modal;
   if (!m) { document.getElementById('modals').innerHTML=''; return; }
-  const bodies = { act:modalAct, event:modalEvent, plan:modalPlan, goal:modalGoal, diary:modalDiary, sleep:modalSleep, profile:modalProfile };
-  const titles = { act:'⚡ Registra Attività', event:'📅 Nuovo Evento', plan:'📋 Pianifica Compito', goal:'🎯 Nuovo Obiettivo', diary:'📔 Scrivi Riflessione', sleep:'🌙 Traccia Sonno', profile:'👤 Modifica Profilo' };
+  const bodies = { act:modalAct, event:modalEvent, plan:modalPlan, goal:modalGoal, diary:modalDiary, sleep:modalSleep, profile:modalProfile, repeatSchedule:modalRepeatSchedule };
+  const titles = { act:'⚡ Registra Attività', event:'📅 Nuovo Evento', plan:'📋 Pianifica Compito', goal:'🎯 Nuovo Obiettivo', diary:'📔 Scrivi Riflessione', sleep:'🌙 Traccia Sonno', profile:'👤 Modifica Profilo', repeatSchedule:'🔄 Rendi Ripetibile la Giornata' };
   document.getElementById('modals').innerHTML = `
     <div class="modal-overlay" onclick="closeModal()">
       <div class="modal-box" onclick="event.stopPropagation()">
@@ -1149,8 +1244,23 @@ function renderModal() {
     </div>`;
 }
 
-function openModal(m) { S.modal=m; renderModal(); }
-function closeModal() { S.modal=null; renderModal(); }
+function openModal(m) {
+  if (m === 'diary' && !S.editingDiaryId) {
+    S.diaryForm = '';
+    S.moodForm = 3;
+  }
+  if (m === 'sleep' && !S.editingSleepId) {
+    S.sleepForm = {bedtime:'23:00', wake:'07:00'};
+  }
+  S.modal=m;
+  renderModal();
+}
+function closeModal() {
+  S.modal=null;
+  S.editingDiaryId = null;
+  S.editingSleepId = null;
+  renderModal();
+}
 
 function modalAct() {
   const f = S.actForm;
@@ -1235,6 +1345,7 @@ function modalGoal() {
 }
 
 function modalDiary() {
+  const btnTxt = S.editingDiaryId ? 'Aggiorna riflessione' : 'Salva';
   return `<div style="display:flex;flex-direction:column;gap:12px">
     <div>
       <div class="inp-label" style="text-align:center;margin-bottom:8px">Valutazione Umore attuale</div>
@@ -1243,18 +1354,19 @@ function modalDiary() {
       </div>
     </div>
     <textarea class="inp" placeholder="Cosa è successo oggi di importante? Rifletti su progressi e stato mentale..." style="min-height:100px;resize:none;line-height:1.6" oninput="S.diaryForm=this.value">${S.diaryForm}</textarea>
-    <button class="btn full" onclick="logDiary()" ${!S.diaryForm.trim()?'disabled':''}>Salva</button>
+    <button class="btn full" onclick="logDiary()" ${!S.diaryForm.trim()?'disabled':''}>${btnTxt}</button>
   </div>`;
 }
 
 function modalSleep() {
   const f = S.sleepForm;
+  const btnTxt = S.editingSleepId ? 'Aggiorna riposo' : 'Registra Riposo Notturno';
   return `<div style="display:flex;flex-direction:column;gap:12px">
     <div class="grid2">
       <div><div class="inp-label">🌙 ANDATO A LETTO</div><input type="time" class="inp" value="${f.bedtime}" oninput="S.sleepForm.bedtime=this.value"></div>
       <div><div class="inp-label">☀️ SVEGLIA</div><input type="time" class="inp" value="${f.wake}" oninput="S.sleepForm.wake=this.value"></div>
     </div>
-    <button class="btn full" onclick="logSleep()">Registra Riposo Notturno</button>
+    <button class="btn full" onclick="logSleep()">${btnTxt}</button>
   </div>`;
 }
 
@@ -1268,7 +1380,30 @@ function modalProfile() {
         ${avatars.map(a => `<div onclick="S.profile.avatar='${a}';saveState();renderModal();renderHeader()" style="font-size:24px;cursor:pointer;opacity:${p.avatar===a?1:.35};transform:${p.avatar===a?'scale(1.25)':'scale(1)'};transition:all .2s">${a}</div>`).join('')}
       </div>
     </div>
-    <input class="inp" placeholder="Il tuo Nome" value="${p.name}" oninput="S.profile.name=this.value;saveState()">
+    <div>
+      <div class="inp-label">IL TUO NOME</div>
+      <input class="inp" placeholder="Il tuo Nome" value="${p.name || ''}" oninput="S.profile.name=this.value;saveState()">
+    </div>
+    <div>
+      <div class="inp-label">CHIAVE API GEMINI</div>
+      <input class="inp" type="password" placeholder="Inserisci la tua GEMINI_API_KEY" value="${p.geminiApiKey || ''}" oninput="S.profile.geminiApiKey=this.value;saveState()">
+      <div style="font-size:10px;color:var(--text-secondary);margin-top:4px;line-height:1.3">La chiave viene salvata localmente nel browser. Serve per sbloccare l'AI Coach e la valutazione Speaking reale.</div>
+    </div>
+    <div>
+      <div class="inp-label">NOTIFICHE AGENDA</div>
+      ${('Notification' in window) ? `
+        <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;background:rgba(124,106,247,0.05);padding:8px;border-radius:10px;border:1px solid var(--border-color)">
+          <div style="font-size:11.5px;color:var(--text-secondary)">
+            Stato notifiche: <strong>${Notification.permission === 'granted' ? 'Abilitate ✅' : Notification.permission === 'denied' ? 'Negate ❌' : 'Richiedi... 🔔'}</strong>
+          </div>
+          ${Notification.permission !== 'granted' ? `
+            <button class="btn sm" onclick="requestNotificationPermission()" style="padding:4px 10px;font-size:11px">Attiva</button>
+          ` : ''}
+        </div>
+      ` : `
+        <div style="font-size:11px;color:var(--danger)">Le notifiche push non sono supportate su questo browser.</div>
+      `}
+    </div>
     <button class="btn full" onclick="closeModal();re()">Salva Profilo</button>
   </div>`;
 }
@@ -1312,10 +1447,19 @@ function logGoal() {
 
 function logDiary() {
   if (!S.diaryForm.trim()) return;
-  S.diary.push({id:Date.now(), date:todayStr(), content:S.diaryForm, mood:S.moodForm});
-  S.moods.push({date:todayStr(), value:S.moodForm});
-  addXP(20);
-  if (S.diary.length >= 7) addBadge('diary_7');
+  if (S.editingDiaryId) {
+    const item = S.diary.find(d => d.id === S.editingDiaryId);
+    if (item) {
+      item.content = S.diaryForm;
+      item.mood = S.moodForm;
+    }
+    S.editingDiaryId = null;
+  } else {
+    S.diary.push({id:Date.now(), date:todayStr(), content:S.diaryForm, mood:S.moodForm});
+    S.moods.push({date:todayStr(), value:S.moodForm});
+    addXP(20);
+    if (S.diary.length >= 7) addBadge('diary_7');
+  }
   S.diaryForm = '';
   closeModal(); re();
 }
@@ -1325,7 +1469,19 @@ function logSleep() {
   const bed = new Date(`${todayStr()}T${f.bedtime}`);
   const wake = new Date(`${todayStr()}T${f.wake}`);
   let h = (wake-bed)/3600000; if(h<0) h+=24;
-  S.sleepLog.push({id:Date.now(), date:todayStr(), ...f, hours:Math.round(h*10)/10});
+  
+  if (S.editingSleepId) {
+    const item = S.sleepLog.find(s => s.id === S.editingSleepId);
+    if (item) {
+      item.bedtime = f.bedtime;
+      item.wake = f.wake;
+      item.hours = Math.round(h*10)/10;
+    }
+    S.editingSleepId = null;
+  } else {
+    S.sleepLog.push({id:Date.now(), date:todayStr(), ...f, hours:Math.round(h*10)/10});
+    addXP(20);
+  }
   closeModal(); re();
 }
 
@@ -1338,6 +1494,35 @@ function togglePlan(id) {
     addBadge('first_task');
     const dayItems = S.schedule.filter(x => x.date===item.date);
     if (dayItems.length > 1 && dayItems.every(x=>x.done)) addBadge('perfect_day');
+    
+    // Auto add to S.activities
+    const [h1, m1] = (item.startTime || '09:00').split(':').map(Number);
+    const [h2, m2] = (item.endTime || '10:00').split(':').map(Number);
+    let duration = (h2 * 60 + m2) - (h1 * 60 + m1);
+    if (isNaN(duration) || duration <= 0) duration = 30;
+    
+    const actId = Date.now() + Math.random();
+    item.activityId = actId;
+    S.activities.push({
+      id: actId,
+      category: item.category || 'study',
+      duration: duration,
+      note: `Completato da agenda: ${item.title}` + (item.note ? ` (${item.note})` : ''),
+      date: item.date || todayStr(),
+      time: new Date().toISOString()
+    });
+    save('lo_acts', S.activities);
+    
+    // English integration check
+    if (item.category === 'english' || (item.title && /inglese|english/i.test(item.title))) {
+      addEnglishXP(50);
+    }
+  } else {
+    if (item.activityId) {
+      S.activities = S.activities.filter(a => a.id !== item.activityId);
+      save('lo_acts', S.activities);
+      delete item.activityId;
+    }
   }
   re();
 }
@@ -1369,7 +1554,26 @@ function togglePom() {
       if (S.pomMins===0) {
         clearInterval(S.pomInterval); S.pomInterval=null; S.pomRunning=false;
         const M={work:25,short:5,long:15};
-        if (S.pomMode==='work') { S.pomSessions++; addXP(30); if(S.pomSessions>=10)addBadge('pomodoro_10'); }
+        if (S.pomMode==='work') { 
+          S.pomSessions++; 
+          addXP(30); 
+          if(S.pomSessions>=10)addBadge('pomodoro_10'); 
+          
+          if (S.pomLinkedTaskId) {
+            const task = S.schedule.find(x => x.id === S.pomLinkedTaskId);
+            if (task) {
+              togglePlan(S.pomLinkedTaskId);
+              showToastMessage(`🍅 Pomodoro completato! Attività "${task.title}" completata.`);
+              if (window.speechSynthesis) {
+                const u = new SpeechSynthesisUtterance(`Excellent focus! Task ${task.title} has been completed.`);
+                u.lang = 'en-US';
+                window.speechSynthesis.speak(u);
+              }
+            }
+            S.pomLinkedTaskId = null;
+            saveState();
+          }
+        }
         S.pomMins=M[S.pomMode]; S.pomSecs=0;
         re(); return;
       }
@@ -1419,31 +1623,127 @@ function speakText(txt) {
     const u = new SpeechSynthesisUtterance(txt); u.lang='en-US'; u.rate=.85; window.speechSynthesis.speak(u);
   }
 }
-function startSpeak() {
-  const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
-  if (!SR) { S.engSpeakResult='⚠️ Audio-speech recognition is not supported on this browser context.'; re(); return; }
-  const rec = new SR(); rec.lang='en-US'; rec.interimResults=false;
-  S.engSpeakLoading=true; S.engSpeakResult='🎤 Parla adesso...'; re();
-  rec.onresult = async e => {
-    const tr = e.results[0][0].transcript;
-    S.engSpeakResult='AI Evaluation in corso...'; re();
-    try {
-      const lv = S.profile.englishLevel||'A1';
-      const res = await fetch('https://api.anthropic.com/v1/messages',{
-        method:'POST',
-        headers:{'Content-Type':'application/json','anthropic-version':'2023-06-01','anthropic-dangerous-direct-browser-access':'true'},
-        body:JSON.stringify({model:'claude-sonnet-4-6',max_tokens:200,
-          system:`Sei un English Speaking Coach. Lo studente è livello ${lv}. Offri un feedback conciso di max 3 righe in italiano sulla base del testo dello studente.`,
-          messages:[{role:'user',content:`Mio testo: "${tr}"`}]})
-      });
-      const data = await res.json();
-      S.engSpeakResult=`🎤 Pronunciato: "${tr}"\n\nAI Evaluation:\n${data.content?.[0]?.text||'Errore di connessione'}`;
-    } catch { S.engSpeakResult=`🎤 Pronunciato: "${tr}"\n\nNessuna connessione all'AI Coach.`; }
-    S.engSpeakLoading=false; re();
-  };
-  rec.onerror=()=>{S.engSpeakLoading=false;S.engSpeakResult='Errore audio.';re();};
-  rec.start();
+
+// ── GEMINI API INTEGRATION ────────────────────────────────────────────────────
+async function askGemini(system, prompt) {
+  const apiKey = S.profile.geminiApiKey || '';
+  if (!apiKey) {
+    return `Ciao! Per sbloccare l'AI Coach di LifeOS, inserisci la tua **GEMINI_API_KEY** personale nelle impostazioni del tuo Profilo (clicca sulla tua icona/avatar in alto a destra o nella barra laterale).
+    
+Nel frattempo, ecco un consiglio utile: Mantieni costante la tua routine e concentrati su piccoli traguardi giorno dopo giorno! 🚀`;
+  }
+  
+  try {
+    const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`;
+    const response = await fetch(url, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        contents: [{
+          role: 'user',
+          parts: [{ text: prompt }]
+        }],
+        systemInstruction: {
+          parts: [{ text: system }]
+        },
+        generationConfig: {
+          maxOutputTokens: 300,
+          temperature: 0.7
+        }
+      })
+    });
+    
+    if (!response.ok) {
+      const errData = await response.json().catch(() => ({}));
+      throw new Error(errData.error?.message || `HTTP ${response.status}`);
+    }
+    
+    const data = await response.json();
+    const replyText = data.candidates?.[0]?.content?.parts?.[0]?.text;
+    if (!replyText) throw new Error("Risposta vuota dall'API");
+    return replyText;
+  } catch (err) {
+    console.error("Gemini API Error:", err);
+    return `⚠️ Errore di connessione a Gemini API: ${err.message}. Verifica la tua chiave API nel Profilo o la tua connessione internet.`;
+  }
 }
+
+// ── SPEECH RECOGNITION (BUGFIXED) ─────────────────────────────────────────────
+async function startSpeak() {
+  const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+  if (!SR) { 
+    S.engSpeakResult = '⚠️ Il riconoscimento vocale non è supportato da questo browser.'; 
+    re(); 
+    return; 
+  }
+  
+  // Clean up any stale active speech recognizer
+  if (window.currentSpeechRec) {
+    try { window.currentSpeechRec.abort(); } catch(e){}
+  }
+  
+  const rec = new SR();
+  window.currentSpeechRec = rec;
+  rec.lang = 'en-US';
+  rec.interimResults = false;
+  rec.maxAlternatives = 1;
+  
+  S.engSpeakLoading = true;
+  S.engSpeakResult = '🎤 Parla adesso...';
+  re();
+  
+  let gotResult = false;
+  
+  rec.onresult = async e => {
+    gotResult = true;
+    const tr = e.results[0][0].transcript;
+    S.engSpeakResult = `🎤 Hai detto: "${tr}"\n\nAI Coach sta valutando la tua pronuncia...`;
+    re();
+    
+    try {
+      const lv = S.profile.englishLevel || 'A1';
+      const sys = `Sei un English Speaking Coach per uno studente di livello ${lv}. Offri un feedback concisissimo (max 3 righe) in italiano sulla grammatica e la pronuncia della frase pronunciata dallo studente. Sii incoraggiante ed evidenzia eventuali correzioni in grassetto.`;
+      const prompt = `Testo dello studente: "${tr}"`;
+      
+      const aiResponse = await askGemini(sys, prompt);
+      S.engSpeakResult = `🎤 Hai detto: "${tr}"\n\nAI Evaluation:\n${aiResponse}`;
+    } catch (err) {
+      S.engSpeakResult = `🎤 Hai detto: "${tr}"\n\n⚠️ Errore nella valutazione: ${err.message}`;
+    }
+    S.engSpeakLoading = false;
+    re();
+  };
+  
+  rec.onerror = e => {
+    console.error("Speech recognition error event:", e);
+    if (!gotResult) {
+      S.engSpeakResult = `⚠️ Errore microfono o nessun parlato rilevato (${e.error || 'Generico'}). Riprova!`;
+      S.engSpeakLoading = false;
+      re();
+    }
+  };
+  
+  rec.onend = () => {
+    window.currentSpeechRec = null;
+    if (S.engSpeakLoading && !gotResult) {
+      S.engSpeakResult = '⚠️ Tempo scaduto o nessun parlato rilevato. Clicca di nuovo sul microfono per riprovare.';
+      S.engSpeakLoading = false;
+      re();
+    }
+  };
+  
+  try {
+    rec.start();
+  } catch (err) {
+    console.error("Error starting recognizer:", err);
+    S.engSpeakResult = '⚠️ Impossibile accedere al microfono.';
+    S.engSpeakLoading = false;
+    re();
+  }
+}
+
 function addVocabWord() {
   const f = S.vocabForm; if (!f.word.trim()) return;
   S.dict.push({...f, id:Date.now(), nextReview:todayStr(), interval:1, reps:0});
@@ -1467,23 +1767,319 @@ async function sendChat() {
   const todayPlan = S.schedule.filter(s=>s.date===todayStr());
   const todayDone = todayPlan.filter(s=>s.done).length;
   const p = S.profile;
-  const sys = `Sei l'AI Coach di LifeOS App. Rispondi SEMPRE in italiano, conciso (max 3 frasi), motivante.
-Profilo: nome=${p.name||'Utente'}, streak=${p.streak||0}g, completati=${todayDone}/${todayPlan.length}.`;
-  const history = S.chatMsgs.slice(-10).map(m=>({role:m.r==='u'?'user':'assistant',content:m.t}));
+  const sys = `Sei l'AI Coach di LifeOS App. Rispondi SEMPRE in italiano, conciso (max 3-4 frasi), motivante e personalizzato.
+Profilo dell'utente: nome=${p.name||'Utente'}, streak=${p.streak||0}g, completati=${todayDone}/${todayPlan.length} compiti oggi.`;
+  
+  let historyPrompt = "Cronologia della conversazione recente:\n";
+  S.chatMsgs.slice(-8).forEach(m => {
+    historyPrompt += `${m.r==='u'?'Utente':'AI Coach'}: ${m.t}\n`;
+  });
+  historyPrompt += "\nRispondi ora in modo empatico e incoraggiante all'ultimo messaggio dell'utente.";
+  
   try {
-    const res = await fetch('https://api.anthropic.com/v1/messages',{
-      method:'POST',
-      headers:{'Content-Type':'application/json','anthropic-version':'2023-06-01','anthropic-dangerous-direct-browser-access':'true'},
-      body:JSON.stringify({model:'claude-sonnet-4-6',max_tokens:200,system:sys,messages:history})
-    });
-    if(!res.ok){const e=await res.json();throw new Error(e.error?.message||'HTTP '+res.status);}
-    const data=await res.json();
-    S.chatMsgs.push({r:'a',t:data.content?.[0]?.text||'Siamo momentaneamente offline.'});
+    const aiResponse = await askGemini(sys, historyPrompt);
+    S.chatMsgs.push({r:'a',t:aiResponse});
   } catch(e) {
-    S.chatMsgs.push({r:'a',t:`⚠️ Impossibile collegarsi all'AI: ${e.message}`});
+    S.chatMsgs.push({r:'a',t:`⚠️ Errore di comunicazione: ${e.message}`});
   }
   S.chatLoading=false; re();
 }
+
+// ── REPEAT SCHEDULE LOGIC ─────────────────────────────────────────────────────
+function openRepeatScheduleModal() {
+  window.repeatTargetDates = [];
+  openModal('repeatSchedule');
+}
+
+function toggleRepeatTargetDate(date) {
+  if (!window.repeatTargetDates) window.repeatTargetDates = [];
+  const idx = window.repeatTargetDates.indexOf(date);
+  if (idx > -1) {
+    window.repeatTargetDates.splice(idx, 1);
+  } else {
+    window.repeatTargetDates.push(date);
+  }
+  renderModal();
+}
+
+function selectAllRepeatDays(days) {
+  window.repeatTargetDates = [...days];
+  renderModal();
+}
+
+function deselectAllRepeatDays() {
+  window.repeatTargetDates = [];
+  renderModal();
+}
+
+function confirmRepeatSchedule() {
+  const selDate = S.plannerDate;
+  const targetDates = window.repeatTargetDates || [];
+  if (targetDates.length === 0) return;
+
+  const sourceTasks = S.schedule.filter(s => s.date === selDate);
+  if (sourceTasks.length === 0) return;
+
+  targetDates.forEach(date => {
+    // Rimuovi eventuali compiti preesistenti per quel giorno per evitare duplicati
+    S.schedule = S.schedule.filter(s => s.date !== date);
+
+    // Copia i compiti
+    sourceTasks.forEach(task => {
+      S.schedule.push({
+        ...task,
+        id: Date.now() + Math.random(),
+        date: date,
+        done: false // Resetta lo stato di completamento
+      });
+    });
+  });
+
+  closeModal();
+  saveState();
+  re();
+  showToastMessage(`Pianificazione copiata con successo su ${targetDates.length} giorni!`);
+}
+
+function showToastMessage(msg) {
+  const t = document.getElementById('toast');
+  if (t) {
+    t.innerHTML = `<div class="badge-toast popIn" style="border-color:var(--primary);box-shadow:0 8px 32px rgba(124,106,247,0.25)">
+      <div style="font-size:32px;margin-bottom:4px">🔄</div>
+      <div style="font-family:'Space Grotesk',sans-serif;font-weight:700;font-size:14px;margin-bottom:3px">${msg}</div>
+    </div>`;
+    setTimeout(() => { t.innerHTML = ''; }, 3000);
+  }
+}
+
+function modalRepeatSchedule() {
+  const selDate = S.plannerDate;
+  const itemsToCopy = S.schedule.filter(s => s.date === selDate);
+  if (itemsToCopy.length === 0) {
+    return `<div style="text-align:center;padding:12px">
+      <div style="font-size:24px;margin-bottom:8px">⚠️</div>
+      <div style="font-weight:700;font-size:14px;margin-bottom:4px">Nessuna attività pianificata</div>
+      <p style="font-size:12px;color:var(--text-secondary);margin-bottom:12px">Pianifica almeno un'attività per questa giornata prima di renderla ripetibile.</p>
+      <button class="btn sm full" onclick="closeModal()">Ho capito</button>
+    </div>`;
+  }
+
+  // Genera i prossimi 7 giorni della settimana a partire da oggi
+  const days = [];
+  const start = new Date();
+  for (let i = 0; i < 7; i++) {
+    const d = new Date(start);
+    d.setDate(start.getDate() + i);
+    days.push(d.toISOString().split('T')[0]);
+  }
+
+  // Filtra il giorno corrente
+  const selectableDays = days.filter(d => d !== selDate);
+
+  if (!window.repeatTargetDates) {
+    window.repeatTargetDates = [];
+  }
+
+  return `<div style="display:flex;flex-direction:column;gap:12px">
+    <div style="font-size:12.5px;color:var(--text-secondary);line-height:1.5">
+      Seleziona i giorni della settimana in cui copiare le <strong>${itemsToCopy.length} attività</strong> del <strong>${fmtDate(selDate)}</strong>:
+    </div>
+    
+    <div style="display:flex;flex-direction:column;gap:6px;max-height:220px;overflow-y:auto;border:1px solid var(--border-color);border-radius:10px;padding:8px">
+      ${selectableDays.map(d => {
+        const wd = WD[new Date(d+'T12:00').getDay()];
+        const isSelected = window.repeatTargetDates.includes(d);
+        return `
+          <label style="display:flex;align-items:center;gap:10px;padding:8px;cursor:pointer;border-bottom:1px solid rgba(124,106,247,0.06)">
+            <input type="checkbox" style="width:18px;height:18px;cursor:pointer" ${isSelected?'checked':''} onchange="toggleRepeatTargetDate('${d}')">
+            <span style="font-size:13.5px;font-weight:600">${wd} ${fmtDate(d)}</span>
+          </label>
+        `;
+      }).join('')}
+    </div>
+
+    <div style="display:flex;gap:8px;margin-top:4px">
+      <button class="btn outline sm" style="flex:1" onclick="selectAllRepeatDays(${JSON.stringify(selectableDays)})">Tutti</button>
+      <button class="btn outline sm" style="flex:1" onclick="deselectAllRepeatDays()">Nessuno</button>
+    </div>
+
+    <button class="btn full" onclick="confirmRepeatSchedule()" ${window.repeatTargetDates.length === 0 ? 'disabled' : ''}>
+      Copia Programmazione (${window.repeatTargetDates.length} Giorni)
+    </button>
+  </div>`;
+}
+
+// ── ALARM, NOTIFICATION & EDITING SERVICES ────────────────────────────────────
+let alarmAudioCtx = null;
+let alarmIntervalId = null;
+
+function playAlarmSound() {
+  if (alarmIntervalId) return;
+  try {
+    alarmAudioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    alarmIntervalId = setInterval(() => {
+      if (!S.sleepAlarm || !S.sleepAlarm.ringing) {
+        stopAlarmSound();
+        return;
+      }
+      const osc = alarmAudioCtx.createOscillator();
+      const gain = alarmAudioCtx.createGain();
+      osc.type = 'sine';
+      osc.frequency.setValueAtTime(880, alarmAudioCtx.currentTime);
+      gain.gain.setValueAtTime(0.5, alarmAudioCtx.currentTime);
+      gain.gain.exponentialRampToValueAtTime(0.01, alarmAudioCtx.currentTime + 0.4);
+      osc.connect(gain);
+      gain.connect(alarmAudioCtx.destination);
+      osc.start();
+      osc.stop(alarmAudioCtx.currentTime + 0.5);
+    }, 800);
+  } catch (e) {
+    console.error("Audio Context error:", e);
+  }
+}
+
+function stopAlarmSound() {
+  if (alarmIntervalId) {
+    clearInterval(alarmIntervalId);
+    alarmIntervalId = null;
+  }
+  if (alarmAudioCtx) {
+    try { alarmAudioCtx.close(); } catch(e){}
+    alarmAudioCtx = null;
+  }
+}
+
+function updateSleepAlarmTime(time) {
+  if (!S.sleepAlarm) S.sleepAlarm = { enabled: false, time: '07:00', ringing: false };
+  S.sleepAlarm.time = time;
+  saveState();
+  re();
+}
+
+function toggleSleepAlarmEnabled() {
+  if (!S.sleepAlarm) S.sleepAlarm = { enabled: false, time: '07:00', ringing: false };
+  S.sleepAlarm.enabled = !S.sleepAlarm.enabled;
+  if (!S.sleepAlarm.enabled) {
+    S.sleepAlarm.ringing = false;
+    stopAlarmSound();
+  }
+  saveState();
+  re();
+}
+
+function dismissRingingAlarm() {
+  if (S.sleepAlarm) {
+    S.sleepAlarm.ringing = false;
+    stopAlarmSound();
+  }
+  saveState();
+  re();
+  showToastMessage("⏰ Sveglia spenta! Buona giornata!");
+}
+
+function startEditDiary(id) {
+  const item = S.diary.find(d => d.id === id);
+  if (!item) return;
+  S.editingDiaryId = id;
+  S.diaryForm = item.content;
+  S.moodForm = item.mood;
+  openModal('diary');
+}
+
+function deleteDiary(id) {
+  if (confirm("Sei sicuro di voler eliminare questa riflessione?")) {
+    S.diary = S.diary.filter(d => d.id !== id);
+    saveState();
+    re();
+  }
+}
+
+function startEditSleep(id) {
+  const item = S.sleepLog.find(s => s.id === id);
+  if (!item) return;
+  S.editingSleepId = id;
+  S.sleepForm = { bedtime: item.bedtime, wake: item.wake };
+  openModal('sleep');
+}
+
+function deleteSleep(id) {
+  if (confirm("Sei sicuro di voler eliminare questa registrazione del sonno?")) {
+    S.sleepLog = S.sleepLog.filter(s => s.id !== id);
+    saveState();
+    re();
+  }
+}
+
+let lastCheckedMinute = '';
+function globalTimeCheck() {
+  const now = new Date();
+  const currentHourMin = `${String(now.getHours()).padStart(2,'0')}:${String(now.getMinutes()).padStart(2,'0')}`;
+  
+  // 1. Check Sleep Alarm
+  if (S.sleepAlarm && S.sleepAlarm.enabled && S.sleepAlarm.time === currentHourMin && !S.sleepAlarm.ringing) {
+    S.sleepAlarm.ringing = true;
+    saveState();
+    re();
+    playAlarmSound();
+    
+    if (Notification.permission === 'granted') {
+      new Notification("⏰ SVEGLIA!", {
+        body: `Sono le ${currentHourMin}. Sveglia attiva!`,
+        icon: './icon-192.png',
+        tag: 'sleep-alarm'
+      });
+    }
+  }
+  
+  // 2. Check task notifications
+  if (lastCheckedMinute !== currentHourMin) {
+    lastCheckedMinute = currentHourMin;
+    const today = todayStr();
+    const upcomingTasks = S.schedule.filter(x => x.date === today && !x.done && x.startTime === currentHourMin);
+    
+    upcomingTasks.forEach(task => {
+      if (!S.notifiedTaskIds.includes(task.id)) {
+        S.notifiedTaskIds.push(task.id);
+        saveState();
+        
+        if (Notification.permission === 'granted') {
+          new Notification(`📋 Attività in partenza: ${task.title}`, {
+            body: `Ora: ${task.startTime} - ${task.endTime}\n${task.note || ''}`,
+            icon: './icon-192.png'
+          });
+        }
+        
+        showToastMessage(`🔔 Agenda: ${task.title} sta iniziando!`);
+        
+        if (window.speechSynthesis) {
+          const speakTxt = `It is time for your activity: ${task.title}.`;
+          const u = new SpeechSynthesisUtterance(speakTxt);
+          u.lang = 'en-US';
+          u.rate = 0.95;
+          window.speechSynthesis.speak(u);
+        }
+      }
+    });
+  }
+}
+
+function requestNotificationPermission() {
+  if ('Notification' in window) {
+    Notification.requestPermission().then(permission => {
+      if (permission === 'granted') {
+        showToastMessage("🔔 Notifiche abilitate con successo!");
+      } else {
+        showToastMessage("⚠️ Permesso notifiche negato.");
+      }
+      re();
+    });
+  } else {
+    showToastMessage("⚠️ Notifiche non supportate da questo browser.");
+  }
+}
+
+// Start global timer loop
+setInterval(globalTimeCheck, 1000);
 
 // ── STREAK HISTORY TRACKER ────────────────────────────────────────────────────
 function checkStreak() {
