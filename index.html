@@ -1634,36 +1634,45 @@ Nel frattempo, ecco un consiglio utile: Mantieni costante la tua routine e conce
   }
   
   try {
-    const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`;
-    const response = await fetch(url, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify({
-        contents: [{
-          role: 'user',
-          parts: [{ text: prompt }]
-        }],
-        systemInstruction: {
-          parts: [{ text: system }]
-        },
-        generationConfig: {
-          maxOutputTokens: 300,
-          temperature: 0.7
+    const models = ['gemini-1.5-flash-latest', 'gemini-1.5-flash', 'gemini-pro'];
+    let lastError = null;
+    for (const modelName of models) {
+      try {
+        const url = `https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent?key=${apiKey}`;
+        const response = await fetch(url, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({
+            contents: [{
+              role: 'user',
+              parts: [{ text: prompt }]
+            }],
+            systemInstruction: {
+              parts: [{ text: system }]
+            },
+            generationConfig: {
+              maxOutputTokens: 300,
+              temperature: 0.7
+            }
+          })
+        });
+        
+        if (response.ok) {
+          const data = await response.json();
+          const replyText = data.candidates?.[0]?.content?.parts?.[0]?.text;
+          if (!replyText) throw new Error("Risposta vuota dall'API");
+          return replyText;
+        } else {
+          const errData = await response.json().catch(() => ({}));
+          lastError = new Error(errData.error?.message || `HTTP ${response.status}`);
         }
-      })
-    });
-    
-    if (!response.ok) {
-      const errData = await response.json().catch(() => ({}));
-      throw new Error(errData.error?.message || `HTTP ${response.status}`);
+      } catch (err) {
+        lastError = err;
+      }
     }
-    
-    const data = await response.json();
-    const replyText = data.candidates?.[0]?.content?.parts?.[0]?.text;
-    if (!replyText) throw new Error("Risposta vuota dall'API");
-    return replyText;
+    throw lastError || new Error("Errore sconosciuto di connessione");
   } catch (err) {
     console.error("Gemini API Error:", err);
     return `⚠️ Errore di connessione a Gemini API: ${err.message}. Verifica la tua chiave API nel Profilo o la tua connessione internet.`;
